@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>翻翻樂記憶卡</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans+TC:wght@700;900&display=swap">
+<style>
+  /* Layout: one-screen sunny play mat; a toolbar of big emoji buttons, the card board filling the middle, a "found" tray at the bottom. */
+  :root {
+    --sun: #ffd34e;        /* play-mat background */
+    --sun-deep: #f5b82e;   /* mat pattern, button shadows */
+    --cobalt: #2b59c3;     /* card backs, primary buttons */
+    --cobalt-deep: #1c3f94;
+    --paper: #ffffff;      /* card faces, panels */
+    --ink: #1e2a4a;        /* text */
+    --leaf: #2fb36f;       /* matched cards */
+    --coral: #ff6b5b;      /* celebration accents */
+    --font-display: "Baloo 2", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background-color: var(--sun);
+    background-image: radial-gradient(var(--sun-deep) 2px, transparent 2.5px);
+    background-size: 28px 28px;
+    color: var(--ink);
+    font-family: var(--font-body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  button { font: inherit; color: inherit; touch-action: manipulation; }
+  button:focus-visible { outline: 4px solid var(--cobalt); outline-offset: 3px; }
+
+  .app { height: 100%; display: flex; flex-direction: column; gap: 12px; padding-block: 12px; }
+
+  /* ---------- toolbar ---------- */
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .brand {
+    font-family: var(--font-display); font-weight: 900; font-size: clamp(1.6rem, 4vw, 2.3rem);
+    line-height: 1; margin: 0 auto 0 0; color: var(--cobalt-deep); letter-spacing: 0.04em;
+    text-shadow: 3px 3px 0 var(--paper);
+  }
+  .group { display: flex; gap: 8px; }
+  .chip {
+    min-width: 60px; height: 60px; padding: 0 12px; border: 0; border-radius: 18px;
+    background: var(--paper); box-shadow: 0 5px 0 var(--sun-deep); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: transform .12s, box-shadow .12s;
+  }
+  .chip:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--sun-deep); }
+  .chip[aria-pressed="true"] { background: var(--cobalt); color: var(--paper); box-shadow: 0 5px 0 var(--cobalt-deep); }
+  .chip .emo { font-family: var(--emoji); font-size: 2rem; line-height: 1; }
+  .chip .txt { font-weight: 700; font-size: 1rem; }
+  .dots { display: inline-flex; gap: 3px; }
+  .dots i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+
+  /* ---------- board ---------- */
+  .board { flex: 1; min-height: 0; display: grid; place-content: center; }
+  .grid { display: grid; gap: var(--gap, 14px); }
+  .card {
+    width: var(--size); height: var(--size); padding: 0; border: 0; background: none;
+    perspective: 900px; cursor: pointer;
+  }
+  .inner {
+    position: relative; display: block; width: 100%; height: 100%;
+    transform-style: preserve-3d; transition: transform .45s cubic-bezier(.3,1.4,.5,1);
+  }
+  .card.flipped .inner { transform: rotateY(180deg); }
+  .face {
+    position: absolute; inset: 0; border-radius: calc(var(--size) * 0.16);
+    backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .back {
+    background-color: var(--cobalt);
+    background-image: radial-gradient(rgba(255,255,255,.22) 3px, transparent 3.5px);
+    background-size: 18px 18px;
+    box-shadow: 0 7px 0 var(--cobalt-deep);
+    border: 5px solid var(--paper);
+  }
+  .back::after {
+    content: "★"; color: var(--sun); font-size: calc(var(--size) * 0.36); line-height: 1;
+    text-shadow: 0 3px 0 var(--cobalt-deep);
+  }
+  .front {
+    background: var(--paper); transform: rotateY(180deg);
+    box-shadow: 0 7px 0 var(--sun-deep); border: 5px solid var(--paper);
+  }
+  .front .emo { font-family: var(--emoji); font-size: calc(var(--size) * 0.5); line-height: 1.1; }
+  .front .name { font-weight: 900; font-size: max(0.85rem, calc(var(--size) * 0.12)); margin-top: 2px; }
+  .card.matched .front { border-color: var(--leaf); box-shadow: 0 7px 0 #1f8a52; }
+  .card.matched .inner { animation: hop .55s ease; }
+  .card.nope .front { animation: wiggle .4s ease; }
+  @keyframes hop { 0%,100% { translate: 0 0; } 40% { translate: 0 -14%; } }
+  @keyframes wiggle { 0%,100% { rotate: 0deg; } 25% { rotate: -6deg; } 75% { rotate: 6deg; } }
+
+  /* ---------- found tray ---------- */
+  .tray { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+  .slot {
+    width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,.55);
+    border: 3px dashed var(--sun-deep); display: grid; place-items: center;
+    font-family: var(--emoji); font-size: 1.8rem;
+  }
+  .slot.full { background: var(--paper); border: 3px solid var(--leaf); animation: pop .4s ease; }
+  @keyframes pop { 0% { scale: .4; } 70% { scale: 1.15; } 100% { scale: 1; } }
+
+  /* ---------- win panel ---------- */
+  .win {
+    position: fixed; inset: 0; display: grid; place-items: center; z-index: 5;
+    background: rgba(30, 42, 74, .45);
+    padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  }
+  .panel {
+    background: var(--paper); border-radius: 32px; padding: 28px 32px; text-align: center;
+    box-shadow: 0 10px 0 var(--cobalt-deep); max-width: 420px; width: 100%;
+    animation: pop .5s ease;
+  }
+  .panel .big { font-family: var(--emoji); font-size: 4.5rem; line-height: 1; }
+  .panel h2 { font-family: var(--font-display); font-weight: 900; font-size: 2.2rem; margin: 8px 0 4px; color: var(--cobalt-deep); text-wrap: balance; }
+  .stars { font-family: var(--emoji); font-size: 2.6rem; letter-spacing: 6px; margin: 4px 0 18px; }
+  .stars .dim { filter: grayscale(1); opacity: .3; }
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    height: 64px; padding: 0 26px; border: 0; border-radius: 20px; cursor: pointer;
+    font-weight: 900; font-size: 1.3rem; background: var(--cobalt); color: var(--paper);
+    box-shadow: 0 6px 0 var(--cobalt-deep);
+  }
+  .btn.alt { background: var(--coral); box-shadow: 0 6px 0 #d4483a; }
+  .btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--cobalt-deep); }
+  canvas.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
+
+  @media (max-width: 560px) {
+    .chip { min-width: 52px; height: 52px; }
+    .chip .txt { display: none; }
+    .slot { width: 42px; height: 42px; font-size: 1.4rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .inner { transition: none; }
+    .card.matched .inner, .card.nope .front, .slot.full, .panel { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <h1 class="brand">翻翻樂</h1>
+    <div class="group" id="themes" role="group" aria-label="選擇卡片主題"></div>
+    <div class="group" id="levels" role="group" aria-label="選擇難度"></div>
+    <div class="group">
+      <button class="chip" id="sound" aria-pressed="true" aria-label="聲音開關"><span class="emo">🔊</span></button>
+      <button class="chip" id="restart" aria-label="重新開始"><span class="emo">🔄</span></button>
+    </div>
+  </header>
+  <main class="board" id="board"><div class="grid" id="grid"></div></main>
+  <footer class="tray" id="tray" aria-label="已找到的配對"></footer>
+</div>
+
+<div class="win" id="win" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="big">🎉</div>
+    <h2 id="winTitle">好棒！全部找到了！</h2>
+    <div class="stars" id="stars"></div>
+    <div class="actions">
+      <button class="btn" id="again">再玩一次</button>
+      <button class="btn alt" id="next">下一關 ➜</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const THEMES = {
+    animal: { icon: '🐶', label: '動物', items: [
+      ['🐶','小狗'],['🐱','小貓'],['🐰','兔子'],['🐻','小熊'],['🐼','熊貓'],['🐸','青蛙'],
+      ['🐵','猴子'],['🦁','獅子'],['🐷','小豬'],['🐮','乳牛'],['🐤','小雞'],['🐘','大象']] },
+    fruit: { icon: '🍎', label: '水果', items: [
+      ['🍎','蘋果'],['🍌','香蕉'],['🍇','葡萄'],['🍓','草莓'],['🍉','西瓜'],['🍊','橘子'],
+      ['🍑','桃子'],['🍍','鳳梨'],['🥝','奇異果'],['🍒','櫻桃'],['🍋','檸檬'],['🥭','芒果']] },
+    car: { icon: '🚗', label: '交通', items: [
+      ['🚗','汽車'],['🚌','公車'],['🚒','消防車'],['🚓','警車'],['🚑','救護車'],['🚜','拖拉機'],
+      ['✈️','飛機'],['🚀','火箭'],['🚂','火車'],['🚲','腳踏車'],['⛵','帆船'],['🚁','直升機']] },
+  };
+  const LEVELS = [ { pairs: 3, label: '簡單' }, { pairs: 4, label: '普通' }, { pairs: 6, label: '挑戰' } ];
+
+  const $ = id => document.getElementById(id);
+  const grid = $('grid'), board = $('board'), tray = $('tray');
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('flipflip.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('flipflip.' + k, JSON.stringify(v)); } catch {} },
+  };
+
+  const state = {
+    theme: THEMES[store.get('theme', 'animal')] ? store.get('theme', 'animal') : 'animal',
+    level: Math.min(LEVELS.length - 1, Math.max(0, store.get('level', 0) | 0)),
+    sound: store.get('sound', true) !== false,
+    cards: [], open: [], found: 0, tries: 0, lock: false,
+  };
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- sound (Web Audio, no files needed) ---------- */
+  let ctx = null;
+  function audio() {
+    if (!state.sound) return null;
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    } catch { return null; }
+  }
+  function tone(freq, start, dur, type = 'sine', vol = 0.18) {
+    const a = audio(); if (!a) return;
+    const t = a.currentTime + start, o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+  }
+  const sfx = {
+    flip: () => tone(660, 0, 0.12, 'triangle', 0.12),
+    match: () => [523, 659, 784].forEach((f, i) => tone(f, i * 0.09, 0.3)),
+    miss: () => { tone(330, 0, 0.18, 'sine', 0.1); tone(294, 0.12, 0.22, 'sine', 0.1); },
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.35, 'triangle', 0.15)),
+  };
+  function say(text) {
+    if (!state.sound || !('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-TW'; u.rate = 0.9; u.pitch = 1.2;
+      const v = speechSynthesis.getVoices().find(v => /zh[-_]TW/i.test(v.lang));
+      if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch {}
+  }
+
+  /* ---------- toolbar ---------- */
+  function buildToolbar() {
+    $('themes').innerHTML = '';
+    for (const [key, t] of Object.entries(THEMES)) {
+      const b = document.createElement('button');
+      b.className = 'chip'; b.dataset.key = key;
+      b.setAttribute('aria-label', t.label);
+      b.innerHTML = `<span class="emo">${t.icon}</span><span class="txt">${t.label}</span>`;
+      b.addEventListener('click', () => { state.theme = key; store.set('theme', key); newGame(); });
+      $('themes').append(b);
+    }
+    $('levels').innerHTML = '';
+    LEVELS.forEach((lv, i) => {
+      const b = document.createElement('button');
+      b.className = 'chip'; b.setAttribute('aria-label', `${lv.label}，${lv.pairs} 對`);
+      b.innerHTML = `<span class="dots">${'<i></i>'.repeat(i + 1)}</span><span class="txt">${lv.label}</span>`;
+      b.addEventListener('click', () => { state.level = i; store.set('level', i); newGame(); });
+      $('levels').append(b);
+    });
+    $('sound').addEventListener('click', () => {
+      state.sound = !state.sound; store.set('sound', state.sound);
+      if (!state.sound && 'speechSynthesis' in window) speechSynthesis.cancel();
+      syncToolbar();
+    });
+    $('restart').addEventListener('click', newGame);
+  }
+  function syncToolbar() {
+    [...$('themes').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.key === state.theme));
+    [...$('levels').children].forEach((b, i) => b.setAttribute('aria-pressed', i === state.level));
+    $('sound').setAttribute('aria-pressed', state.sound);
+    $('sound').querySelector('.emo').textContent = state.sound ? '🔊' : '🔇';
+  }
+
+  /* ---------- game ---------- */
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function newGame() {
+    $('win').hidden = true; stopConfetti();
+    const pairs = LEVELS[state.level].pairs;
+    const picks = shuffle([...THEMES[state.theme].items]).slice(0, pairs);
+    const deck = shuffle(picks.flatMap((it, id) => [{ id, emoji: it[0], name: it[1] }, { id, emoji: it[0], name: it[1] }]));
+    Object.assign(state, { open: [], found: 0, tries: 0, lock: false });
+
+    grid.innerHTML = '';
+    state.cards = deck.map(c => {
+      const el = document.createElement('button');
+      el.className = 'card'; el.setAttribute('aria-label', '翻開卡片');
+      el.innerHTML = `<span class="inner"><span class="face back"></span>` +
+        `<span class="face front"><span class="emo">${c.emoji}</span><span class="name">${c.name}</span></span></span>`;
+      const card = { ...c, el, up: false, done: false };
+      el.addEventListener('click', () => flip(card));
+      grid.append(el);
+      return card;
+    });
+
+    tray.innerHTML = '';
+    for (let i = 0; i < pairs; i++) {
+      const s = document.createElement('div'); s.className = 'slot'; tray.append(s);
+    }
+    syncToolbar();
+    layout();
+  }
+
+  function show(card, up) {
+    card.up = up;
+    card.el.classList.toggle('flipped', up);
+    card.el.setAttribute('aria-label', up ? card.name : '翻開卡片');
+  }
+
+  function flip(card) {
+    if (state.lock || card.up || card.done) return;
+    audio(); // unlock audio on the first tap (iPad requirement)
+    show(card, true); sfx.flip();
+    state.open.push(card);
+    if (state.open.length < 2) return;
+
+    const [a, b] = state.open;
+    state.tries++; state.lock = true;
+    if (a.id === b.id) {
+      setTimeout(() => {
+        a.done = b.done = true;
+        a.el.classList.add('matched'); b.el.classList.add('matched');
+        sfx.match(); say(a.name);
+        const slot = tray.children[state.found];
+        slot.textContent = a.emoji; slot.classList.add('full');
+        state.found++; state.open = []; state.lock = false;
+        if (state.found === state.cards.length / 2) setTimeout(win, 900);
+      }, 350);
+    } else {
+      setTimeout(() => {
+        a.el.classList.add('nope'); b.el.classList.add('nope'); sfx.miss();
+      }, 500);
+      setTimeout(() => {
+        a.el.classList.remove('nope'); b.el.classList.remove('nope');
+        show(a, false); show(b, false);
+        state.open = []; state.lock = false;
+      }, 1200);
+    }
+  }
+
+  function win() {
+    const pairs = state.cards.length / 2;
+    const extra = state.tries - pairs;          // tries beyond a perfect game
+    const stars = extra <= Math.ceil(pairs / 2) ? 3 : 2; // always encouraging: at least 2 stars
+    $('stars').innerHTML = [0, 1, 2].map(i => i < stars ? '⭐' : '<span class="dim">⭐</span>').join('');
+    $('next').hidden = state.level >= LEVELS.length - 1;
+    $('win').hidden = false;
+    sfx.win(); say('好棒！全部找到了！');
+    startConfetti();
+    $('again').focus();
+  }
+  $('again').addEventListener('click', newGame);
+  $('next').addEventListener('click', () => {
+    state.level = Math.min(LEVELS.length - 1, state.level + 1); store.set('level', state.level); newGame();
+  });
+
+  /* ---------- sizing: pick the column count that gives the biggest cards ---------- */
+  function layout() {
+    const n = state.cards.length; if (!n) return;
+    const W = board.clientWidth, H = board.clientHeight;
+    const gap = Math.max(8, Math.min(16, Math.round(Math.min(W, H) / 40)));
+    let best = { size: 0, cols: 2 };
+    for (let cols = 2; cols <= n; cols++) {
+      if (n % cols) continue;
+      const rows = n / cols;
+      const size = Math.min((W - gap * (cols - 1)) / cols, (H - 8 - gap * (rows - 1)) / rows);
+      if (size > best.size) best = { size, cols };
+    }
+    const size = Math.max(60, Math.min(210, Math.floor(best.size)));
+    grid.style.setProperty('--size', size + 'px');
+    grid.style.setProperty('--gap', gap + 'px');
+    grid.style.gridTemplateColumns = `repeat(${best.cols}, ${size}px)`;
+  }
+  new ResizeObserver(layout).observe(board);
+
+  /* ---------- confetti ---------- */
+  let confettiRaf = 0, confettiCanvas = null;
+  function startConfetti() {
+    if (reduceMotion) return;
+    stopConfetti();
+    const c = confettiCanvas = document.createElement('canvas');
+    c.className = 'confetti'; document.body.append(c);
+    const dpr = window.devicePixelRatio || 1;
+    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+    const g = c.getContext('2d'); g.scale(dpr, dpr);
+    const colors = ['#2b59c3', '#ff6b5b', '#2fb36f', '#ffd34e', '#a463f2'];
+    const bits = Array.from({ length: 140 }, () => ({
+      x: Math.random() * innerWidth, y: -20 - Math.random() * innerHeight * 0.6,
+      vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3,
+      r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.2,
+      w: 8 + Math.random() * 8, h: 5 + Math.random() * 6, color: colors[Math.floor(Math.random() * colors.length)],
+    }));
+    const t0 = performance.now();
+    (function frame(now) {
+      g.clearRect(0, 0, innerWidth, innerHeight);
+      for (const b of bits) {
+        b.x += b.vx; b.y += b.vy; b.r += b.vr;
+        g.save(); g.translate(b.x, b.y); g.rotate(b.r); g.fillStyle = b.color;
+        g.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); g.restore();
+      }
+      if (now - t0 < 4500) confettiRaf = requestAnimationFrame(frame); else stopConfetti();
+    })(t0);
+  }
+  function stopConfetti() {
+    cancelAnimationFrame(confettiRaf);
+    if (confettiCanvas) { confettiCanvas.remove(); confettiCanvas = null; }
+  }
+
+  buildToolbar();
+  newGame();
+})();
+</script>
+</body>
+</html>
