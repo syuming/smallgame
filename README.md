@@ -12,7 +12,16 @@
 - 三種難度：簡單（3 對）、普通（4 對）、挑戰（6 對）。
 - 沒有失敗或扣分；全部找到後一定會得到至少 2 顆星。
 
-## 放到平板上
+## 放到平板上（GitHub Pages）
 
-- 用 GitHub Pages 發布後，在平板的 Safari / Chrome 開啟網址，再選「加入主畫面」，就能像 App 一樣全螢幕開啟。
-- 主題、難度與音效設定會記在瀏覽器中。
+1. 將本分支合併到 `main`。
+2. GitHub repository → **Settings → Pages** → Source 選 **Deploy from a branch**，Branch 選 `main`、資料夾選 `/ (root)`，按 Save。
+3. 約 1–2 分鐘後會出現網址：`https://syuming.github.io/smallgame/`。
+4. 在平板上用該網址開啟，然後：
+   - **iPad（Safari）**：分享按鈕 →「加入主畫面」
+   - **Android（Chrome）**：右上角選單 →「加到主畫面」／「安裝應用程式」
+5. 從主畫面的「翻翻樂」圖示開啟時，會以全螢幕方式執行，沒有網址列。
+
+> 注意：免費帳號的 GitHub Pages 只支援 **public** repository；private repository 需要 GitHub Pro 以上方案。
+
+主題、難度與音效設定會記在瀏覽器中。
