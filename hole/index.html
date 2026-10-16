@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>洞洞吃光光</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="洞洞">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#ffd34e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans+TC:wght@700;900&display=swap">
+<style>
+  /* Layout: same sunny play mat; toolbar, a top-down map canvas where the hole roams, and a progress bar of how much is eaten. */
+  :root {
+    --sun: #ffd34e;
+    --sun-deep: #f5b82e;
+    --cobalt: #2b59c3;
+    --cobalt-deep: #1c3f94;
+    --paper: #ffffff;
+    --ink: #1e2a4a;
+    --leaf: #2fb36f;
+    --coral: #ff6b5b;
+    --font-display: "Baloo 2", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background-color: var(--sun);
+    background-image: radial-gradient(var(--sun-deep) 2px, transparent 2.5px);
+    background-size: 28px 28px;
+    color: var(--ink);
+    font-family: var(--font-body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  button { font: inherit; color: inherit; touch-action: manipulation; }
+  a.chip { color: inherit; text-decoration: none; }
+  button:focus-visible, a:focus-visible { outline: 4px solid var(--cobalt); outline-offset: 3px; }
+
+  .app { height: 100%; display: flex; flex-direction: column; gap: 10px; padding-block: 12px; }
+
+  /* ---------- toolbar (shared look) ---------- */
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .brand {
+    font-family: var(--font-display); font-weight: 900; font-size: clamp(1.6rem, 4vw, 2.3rem);
+    line-height: 1; margin: 0 auto 0 0; color: var(--cobalt-deep); letter-spacing: 0.04em;
+    text-shadow: 3px 3px 0 var(--paper);
+  }
+  .group { display: flex; gap: 8px; }
+  .chip {
+    min-width: 60px; height: 60px; padding: 0 12px; border: 0; border-radius: 18px;
+    background: var(--paper); box-shadow: 0 5px 0 var(--sun-deep); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: transform .12s, box-shadow .12s;
+  }
+  .chip:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--sun-deep); }
+  .chip[aria-pressed="true"] { background: var(--cobalt); color: var(--paper); box-shadow: 0 5px 0 var(--cobalt-deep); }
+  .chip .emo { font-family: var(--emoji); font-size: 2rem; line-height: 1; }
+  .chip .txt { font-weight: 700; font-size: 1rem; }
+
+  /* ---------- map ---------- */
+  .stage {
+    flex: 1; min-height: 0; position: relative; border-radius: 28px; overflow: hidden;
+    box-shadow: 0 8px 0 var(--sun-deep); touch-action: none; background: #7ccf6a;
+  }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .toast {
+    position: absolute; left: 50%; top: 16px; translate: -50% 0; z-index: 3; pointer-events: none;
+    padding: 8px 22px; border-radius: 999px; background: var(--paper); box-shadow: 0 5px 0 var(--sun-deep);
+    font-weight: 900; font-size: 1.3rem; white-space: nowrap; animation: toast 2.2s ease forwards;
+  }
+  .toast .emo { font-family: var(--emoji); }
+  @keyframes toast { 0% { opacity: 0; translate: -50% -20px; } 12%, 80% { opacity: 1; translate: -50% 0; } 100% { opacity: 0; translate: -50% -10px; } }
+  .start { position: absolute; inset: 0; display: grid; place-items: center; z-index: 4; pointer-events: none; }
+  .start button {
+    pointer-events: auto; width: 150px; height: 150px; border-radius: 50%; border: 6px solid var(--paper);
+    background: var(--coral); color: var(--paper); box-shadow: 0 8px 0 #d4483a; cursor: pointer;
+    font-weight: 900; font-size: 1.4rem; display: grid; place-content: center; gap: 2px;
+    animation: breathe 1.6s ease-in-out infinite;
+  }
+  .start button .play { font-size: 3.4rem; line-height: 1; translate: 6% 0; }
+  .start button:active { transform: translateY(6px); box-shadow: 0 2px 0 #d4483a; }
+  @keyframes breathe { 50% { scale: 1.06; } }
+
+  /* ---------- progress ---------- */
+  .progress { display: flex; align-items: center; gap: 12px; padding-inline: 4px; }
+  .track { flex: 1; height: 22px; border-radius: 999px; background: rgba(255,255,255,.6); box-shadow: inset 0 2px 0 rgba(0,0,0,.08); overflow: hidden; }
+  .fill { height: 100%; width: 0; border-radius: 999px; background: var(--leaf); transition: width .3s ease; }
+  .count { font-family: var(--font-display); font-weight: 800; font-size: 1.3rem; font-variant-numeric: tabular-nums; min-width: 4.5em; text-align: right; }
+  .count .emo { font-family: var(--emoji); }
+
+  /* ---------- win panel ---------- */
+  .win {
+    position: fixed; inset: 0; display: grid; place-items: center; z-index: 5;
+    background: rgba(30, 42, 74, .45);
+    padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  }
+  .panel {
+    background: var(--paper); border-radius: 32px; padding: 28px 32px; text-align: center;
+    box-shadow: 0 10px 0 var(--cobalt-deep); max-width: 420px; width: 100%; animation: pop .5s ease;
+  }
+  .panel .big { font-family: var(--emoji); font-size: 4.5rem; line-height: 1; }
+  .panel h2 { font-family: var(--font-display); font-weight: 900; font-size: 2.2rem; margin: 8px 0 4px; color: var(--cobalt-deep); text-wrap: balance; }
+  .stars { font-family: var(--emoji); font-size: 2.6rem; letter-spacing: 6px; margin: 4px 0 18px; }
+  .stars .dim { filter: grayscale(1); opacity: .3; }
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    height: 64px; padding: 0 26px; border: 0; border-radius: 20px; cursor: pointer;
+    font-weight: 900; font-size: 1.3rem; background: var(--cobalt); color: var(--paper);
+    box-shadow: 0 6px 0 var(--cobalt-deep);
+  }
+  .btn.alt { background: var(--coral); box-shadow: 0 6px 0 #d4483a; }
+  .btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--cobalt-deep); }
+  @keyframes pop { 0% { scale: .4; } 70% { scale: 1.1; } 100% { scale: 1; } }
+  canvas.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
+
+  @media (max-width: 560px) {
+    .chip { min-width: 52px; height: 52px; }
+    .chip .txt { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .panel, .start button, .toast { animation: none; }
+    .fill { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <a class="chip" href="../" aria-label="回遊戲選單"><span class="emo">🏠</span></a>
+    <h1 class="brand">洞洞吃光光</h1>
+    <div class="group" id="maps" role="group" aria-label="選擇場景"></div>
+    <div class="group">
+      <button class="chip" id="sound" aria-pressed="true" aria-label="聲音開關"><span class="emo">🔊</span></button>
+      <button class="chip" id="restart" aria-label="重新開始"><span class="emo">🔄</span></button>
+    </div>
+  </header>
+  <main class="stage" id="stage" aria-label="地圖，手指拖著洞洞移動">
+    <canvas id="cv"></canvas>
+    <div class="start" id="start"><button id="go" aria-label="開始"><span class="play">▶</span><span id="goText">開始</span></button></div>
+  </main>
+  <footer class="progress">
+    <div class="track" role="progressbar" aria-label="吃掉的東西" aria-valuemin="0" id="track"><div class="fill" id="fill"></div></div>
+    <div class="count" id="count"></div>
+  </footer>
+</div>
+
+<div class="win" id="win" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="big">🕳️</div>
+    <h2 id="winTitle">全部吃光光了！</h2>
+    <div class="stars" id="stars"></div>
+    <div class="actions">
+      <button class="btn" id="again">再玩一次</button>
+      <button class="btn alt" id="next">下一個地方 ➜</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Five size tiers per map, smallest first. Sizes are fractions of the map's shorter side.
+  const TIER_SIZE  = [0.05, 0.075, 0.11, 0.16, 0.22];
+  const TIER_COUNT = [12, 9, 6, 4, 2];
+  const MAPS = {
+    park: { label: '公園', icon: '🌳', tiers: [
+      [['🌸','花'],['🍎','蘋果'],['🍄','香菇'],['🌼','小花'],['🍓','草莓'],['🦋','蝴蝶']],
+      [['🐶','小狗'],['🐱','小貓'],['🚲','腳踏車'],['⚽','足球'],['🐰','兔子']],
+      [['🌳','大樹'],['🌲','松樹'],['🐴','小馬']],
+      [['⛲','噴水池'],['🎠','旋轉木馬'],['🚌','公車']],
+      [['🎡','摩天輪'],['🏰','城堡']] ] },
+    city: { label: '城市', icon: '🏙️', tiers: [
+      [['🍦','冰淇淋'],['🧃','果汁'],['📮','郵筒'],['🌷','鬱金香'],['🛴','滑板車'],['🚥','紅綠燈']],
+      [['🚲','腳踏車'],['🛵','機車'],['🐕','小狗'],['🌲','樹']],
+      [['🚗','汽車'],['🚕','計程車'],['🚓','警車']],
+      [['🚌','公車'],['🚒','消防車'],['🏠','房子']],
+      [['🏢','大樓'],['🏬','百貨公司']] ] },
+    farm: { label: '農場', icon: '🐮', tiers: [
+      [['🥕','紅蘿蔔'],['🌽','玉米'],['🥚','蛋'],['🍅','番茄'],['🌻','向日葵'],['🐤','小雞']],
+      [['🐔','母雞'],['🐇','兔子'],['🐑','綿羊'],['🎃','南瓜']],
+      [['🐷','小豬'],['🐐','山羊'],['🌳','大樹']],
+      [['🐄','乳牛'],['🚜','拖拉機'],['🐎','馬']],
+      [['🏡','農舍'],['🏘️','村莊']] ] },
+  };
+  const MAP_KEYS = Object.keys(MAPS);
+  const R0 = 0.045, GROW = 0.5, EAT = 0.8, RMAX = 0.25, SPEED = 1.5; // hole radius & speed in map units
+  const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), cv = $('cv'), g = cv.getContext('2d');
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('hole.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('hole.' + k, JSON.stringify(v)); } catch {} },
+  };
+  const state = {
+    map: MAPS[store.get('map', 'park')] ? store.get('map', 'park') : 'park',
+    sound: store.get('sound', true) !== false,
+    running: false, items: [], eaten: 0, total: 0, canEat: 0, elapsed: 0, last: 0, bumpCooldown: 0,
+    hole: { x: 0.5, y: 0.5, r: R0, tx: 0.5, ty: 0.5, gulp: 0 },
+    W: 0, H: 0, m: 0, ground: null,
+  };
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- sound ---------- */
+  let ctx = null;
+  function audio() {
+    if (!state.sound) return null;
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    } catch { return null; }
+  }
+  function tone(freq, start, dur, type = 'sine', vol = 0.18, slideTo) {
+    const a = audio(); if (!a) return;
+    const t = a.currentTime + start, o = a.createOscillator(), gn = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    gn.gain.setValueAtTime(0.0001, t);
+    gn.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(gn).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+  }
+  const sfx = {
+    gulp: tier => { const f = 880 / (1 + tier * 0.35); tone(f, 0, 0.22, 'sine', 0.16, f / 2.5); },
+    bump: () => tone(220, 0, 0.15, 'triangle', 0.08, 300),
+    grow: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.08, 0.25, 'triangle', 0.13)),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.35, 'triangle', 0.15)),
+  };
+  function say(text) {
+    if (!state.sound || !('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-TW'; u.rate = 0.95; u.pitch = 1.2;
+      const v = speechSynthesis.getVoices().find(v => /zh[-_]TW/i.test(v.lang));
+      if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch {}
+  }
+  function toast(html) {
+    stage.querySelector('.toast')?.remove();
+    const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = html;
+    stage.append(t); setTimeout(() => t.remove(), 2300);
+  }
+
+  /* ---------- map generation ---------- */
+  function seeded(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+  function buildItems() {
+    const tiers = MAPS[state.map].tiers, items = [];
+    const W = state.W || 1000, H = state.H || 700, m = Math.min(W, H);
+    // Place the biggest things first, keep them apart, and keep the middle clear for the hole.
+    for (let t = tiers.length - 1; t >= 0; t--) {
+      for (let k = 0; k < TIER_COUNT[t]; k++) {
+        const [e, name] = tiers[t][k % tiers[t].length];
+        const r = TIER_SIZE[t] * m / 2;
+        for (let tries = 0; tries < 300; tries++) {
+          const x = r + Math.random() * (W - 2 * r), y = r * 1.2 + Math.random() * (H - 2.4 * r);
+          if (Math.hypot(x - W / 2, y - H / 2) < r + m * 0.12) continue;
+          if (items.some(o => Math.hypot(o.x * W - x, o.y * H - y) < (o.s * m / 2 + r) * 1.05)) continue;
+          items.push({ e, name, tier: t, x: x / W, y: y / H, s: TIER_SIZE[t], st: 'idle', t: 0, wob: 0 });
+          break;
+        }
+      }
+    }
+    return items;
+  }
+  function buildGround() {
+    const { W, H, m } = state; if (!W) return;
+    const c = document.createElement('canvas'), dpr = window.devicePixelRatio || 1;
+    c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+    const q = c.getContext('2d'); q.scale(dpr, dpr);
+    const r = seeded(11);
+    if (state.map === 'park') {
+      q.fillStyle = '#7ccf6a'; q.fillRect(0, 0, W, H);
+      q.fillStyle = '#6cbf5c'; for (let i = 0; i < 260; i++) { q.beginPath(); q.arc(r() * W, r() * H, 2 + r() * 3, 0, 7); q.fill(); }
+      q.strokeStyle = '#f1dca7'; q.lineWidth = m * 0.07; q.lineCap = 'round';
+      q.beginPath(); q.moveTo(-20, H * 0.75); q.bezierCurveTo(W * 0.3, H * 0.45, W * 0.6, H * 1.0, W + 20, H * 0.3); q.stroke();
+      q.fillStyle = '#8fd3f5'; q.beginPath(); q.ellipse(W * 0.82, H * 0.82, m * 0.12, m * 0.07, 0, 0, 7); q.fill();
+    } else if (state.map === 'city') {
+      q.fillStyle = '#b9c0c8'; q.fillRect(0, 0, W, H);
+      const road = m * 0.09;
+      q.fillStyle = '#5d6672';
+      for (const y of [H * 0.33, H * 0.72]) q.fillRect(0, y - road / 2, W, road);
+      for (const x of [W * 0.3, W * 0.7]) q.fillRect(x - road / 2, 0, road, H);
+      q.strokeStyle = '#ffffff'; q.lineWidth = 3; q.setLineDash([m * 0.03, m * 0.03]);
+      for (const y of [H * 0.33, H * 0.72]) { q.beginPath(); q.moveTo(0, y); q.lineTo(W, y); q.stroke(); }
+      for (const x of [W * 0.3, W * 0.7]) { q.beginPath(); q.moveTo(x, 0); q.lineTo(x, H); q.stroke(); }
+      q.setLineDash([]);
+    } else {
+      q.fillStyle = '#9bd47a'; q.fillRect(0, 0, W, H);
+      q.fillStyle = '#c9925a';
+      for (let i = 0; i < 6; i++) q.fillRect(W * 0.05, H * (0.08 + i * 0.07), W * 0.38, H * 0.035);
+      q.fillStyle = '#e8cf7a'; q.fillRect(W * 0.55, H * 0.55, W * 0.4, H * 0.38);
+      q.strokeStyle = '#8a5a33'; q.lineWidth = 5;
+      q.strokeRect(W * 0.55, H * 0.55, W * 0.4, H * 0.38);
+    }
+    state.ground = c;
+  }
+  function resize() {
+    const r = stage.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    state.W = r.width; state.H = r.height; state.m = Math.min(r.width, r.height);
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    buildGround(); draw();
+  }
+  new ResizeObserver(resize).observe(stage);
+
+  /* ---------- input: drag the hole around ---------- */
+  function aim(e) {
+    const r = stage.getBoundingClientRect();
+    state.hole.tx = Math.max(0, Math.min(1, (e.clientX - r.left) / state.W));
+    state.hole.ty = Math.max(0, Math.min(1, (e.clientY - r.top) / state.H));
+  }
+  stage.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; aim(e); try { stage.setPointerCapture(e.pointerId); } catch {} });
+  stage.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || e.buttons || e.pressure) aim(e); });
+  document.addEventListener('keydown', e => {
+    const h = state.hole, d = 0.08;
+    if (e.key === 'ArrowLeft') h.tx = Math.max(0, h.tx - d);
+    if (e.key === 'ArrowRight') h.tx = Math.min(1, h.tx + d);
+    if (e.key === 'ArrowUp') h.ty = Math.max(0, h.ty - d);
+    if (e.key === 'ArrowDown') h.ty = Math.min(1, h.ty + d);
+  });
+
+  /* ---------- game loop ---------- */
+  function tick(now) {
+    if (!state.running) return;
+    const dt = Math.min(0.05, (now - state.last) / 1000 || 0); state.last = now;
+    state.elapsed += dt;
+    const { W, H, m } = state, h = state.hole;
+    // move toward the finger, at most SPEED map-units per second
+    const dx = (h.tx - h.x) * W, dy = (h.ty - h.y) * H, dist = Math.hypot(dx, dy), step = SPEED * m * dt;
+    if (dist > 0.5) { const k = Math.min(1, step / dist); h.x += dx * k / W; h.y += dy * k / H; }
+    h.gulp = Math.max(0, h.gulp - dt * 3);
+    state.bumpCooldown -= dt;
+
+    const hx = h.x * W, hy = h.y * H, hr = h.r * m;
+    for (const it of state.items) {
+      if (it.st === 'gone') continue;
+      const ox = it.x * W, oy = it.y * H, or = it.s * m / 2;
+      if (it.st === 'idle') {
+        it.wob = Math.max(0, it.wob - dt * 2.5);
+        const d = Math.hypot(ox - hx, oy - hy);
+        if (or < hr * EAT) {
+          if (d < hr * 0.95 - or * 0.3) { it.st = 'fall'; it.t = 0; }
+        } else if (d < hr + or * 0.4) {
+          it.wob = 1;
+          if (state.bumpCooldown <= 0) { sfx.bump(); state.bumpCooldown = 0.6; }
+        }
+      } else if (it.st === 'fall') {
+        it.t += dt;
+        // slide toward the (moving) centre of the hole while shrinking
+        it.x += (h.x - it.x) * Math.min(1, dt * 8); it.y += (h.y - it.y) * Math.min(1, dt * 8);
+        if (it.t >= 0.45) eat(it);
+      }
+    }
+    draw();
+    if (state.running) requestAnimationFrame(tick);
+  }
+
+  function eat(it) {
+    it.st = 'gone';
+    const h = state.hole;
+    h.r = Math.min(RMAX, Math.sqrt(h.r * h.r + GROW * (it.s / 2) ** 2));
+    h.gulp = 1;
+    sfx.gulp(it.tier);
+    state.eaten++;
+    if (it.tier >= 3) say(`吃掉${it.name}了！`);
+    updateProgress();
+    // Tell the child when the hole has grown enough for the next size up.
+    const next = state.canEat + 1;
+    if (next < TIER_SIZE.length && TIER_SIZE[next] / 2 < h.r * EAT) {
+      state.canEat = next;
+      const sample = MAPS[state.map].tiers[next][0];
+      setTimeout(() => {
+        sfx.grow(); toast(`洞洞變大了！可以吃 <span class="emo">${sample[0]}</span> 了`);
+        if (next < 3) say(`洞洞變大了！可以吃${sample[1]}了！`);
+      }, 250);
+    }
+    if (state.eaten >= state.total) finish();
+  }
+
+  function draw() {
+    const { W, H, m } = state; if (!W) return;
+    g.clearRect(0, 0, W, H);
+    if (state.ground) g.drawImage(state.ground, 0, 0, W, H);
+    const h = state.hole, hx = h.x * W, hy = h.y * H;
+    const hr = h.r * m * (1 + (reduceMotion ? 0 : Math.sin(h.gulp * Math.PI) * 0.06));
+
+    // the hole
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.arc(hx, hy + hr * 0.08, hr * 1.08, 0, Math.PI * 2); g.fill();
+    const grad = g.createRadialGradient(hx, hy + hr * 0.15, hr * 0.1, hx, hy, hr);
+    grad.addColorStop(0, '#05060a'); grad.addColorStop(0.75, '#141826'); grad.addColorStop(1, '#2d3448');
+    g.fillStyle = grad; g.beginPath(); g.arc(hx, hy, hr, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = Math.max(3, hr * 0.06);
+    g.beginPath(); g.arc(hx, hy, hr - g.lineWidth / 2, 0, Math.PI * 2); g.stroke();
+
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    // things falling in: clipped to the hole so they look like they drop inside
+    g.save(); g.beginPath(); g.arc(hx, hy, hr, 0, Math.PI * 2); g.clip();
+    for (const it of state.items) {
+      if (it.st !== 'fall') continue;
+      const p = Math.min(1, it.t / 0.45), size = it.s * m * (1 - p * 0.9);
+      g.save(); g.translate(it.x * W, it.y * H); g.rotate(reduceMotion ? 0 : p * 5);
+      g.globalAlpha = 1 - p * 0.5; g.fillStyle = '#000'; g.font = `${size}px ${EMOJI_FONT}`; g.fillText(it.e, 0, 0); g.restore();
+    }
+    g.restore();
+
+    // everything still standing, back to front
+    const standing = state.items.filter(it => it.st === 'idle').sort((a, b) => a.y - b.y);
+    for (const it of standing) {
+      const ox = it.x * W, oy = it.y * H, size = it.s * m;
+      g.fillStyle = 'rgba(0,0,0,.15)';
+      g.beginPath(); g.ellipse(ox, oy + size * 0.42, size * 0.38, size * 0.1, 0, 0, Math.PI * 2); g.fill();
+      g.save(); g.translate(ox, oy);
+      if (it.wob && !reduceMotion) g.rotate(Math.sin(it.wob * 25) * it.wob * 0.15);
+      g.fillStyle = '#000'; // a translucent fill would also fade colour emoji
+      g.font = `${size}px ${EMOJI_FONT}`; g.fillText(it.e, 0, 0); g.restore();
+    }
+  }
+
+  /* ---------- round flow ---------- */
+  function updateProgress() {
+    $('fill').style.width = (state.total ? state.eaten / state.total * 100 : 0) + '%';
+    $('track').setAttribute('aria-valuemax', state.total); $('track').setAttribute('aria-valuenow', state.eaten);
+    $('count').innerHTML = `${state.eaten} / ${state.total}`;
+  }
+  function newGame() {
+    stop();
+    $('win').hidden = true; stopConfetti();
+    stage.querySelector('.toast')?.remove();
+    Object.assign(state.hole, { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5, r: R0, gulp: 0 });
+    state.items = buildItems();
+    Object.assign(state, { eaten: 0, total: state.items.length, canEat: 0, elapsed: 0 });
+    buildGround(); updateProgress();
+    $('goText').textContent = '開始'; $('start').hidden = false;
+    syncToolbar(); draw();
+  }
+  function begin() {
+    audio(); say('拖著洞洞，把東西吃光光！先吃小的喔！');
+    $('start').hidden = true;
+    state.running = true; state.last = performance.now();
+    requestAnimationFrame(tick);
+  }
+  function stop() { state.running = false; }
+  function pause() {
+    if (!state.running) return;
+    stop(); $('goText').textContent = '繼續'; $('start').hidden = false;
+  }
+  function finish() {
+    stop();
+    setTimeout(() => {
+      const stars = state.elapsed <= 150 ? 3 : 2; // always encouraging: at least 2 stars
+      $('stars').innerHTML = [0, 1, 2].map(i => i < stars ? '⭐' : '<span class="dim">⭐</span>').join('');
+      $('winTitle').textContent = `${MAPS[state.map].label}全部吃光光了！`;
+      $('next').hidden = false;
+      $('win').hidden = false;
+      sfx.win(); say('全部吃光光了！好厲害！');
+      startConfetti();
+      $('again').focus();
+    }, 500);
+  }
+  $('go').addEventListener('click', begin);
+  $('again').addEventListener('click', () => { newGame(); begin(); });
+  $('next').addEventListener('click', () => {
+    state.map = MAP_KEYS[(MAP_KEYS.indexOf(state.map) + 1) % MAP_KEYS.length]; store.set('map', state.map);
+    newGame(); begin();
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+  /* ---------- toolbar ---------- */
+  for (const key of MAP_KEYS) {
+    const mp = MAPS[key], b = document.createElement('button');
+    b.className = 'chip'; b.dataset.key = key; b.setAttribute('aria-label', mp.label);
+    b.innerHTML = `<span class="emo">${mp.icon}</span><span class="txt">${mp.label}</span>`;
+    b.addEventListener('click', () => { state.map = key; store.set('map', key); newGame(); });
+    $('maps').append(b);
+  }
+  $('sound').addEventListener('click', () => {
+    state.sound = !state.sound; store.set('sound', state.sound);
+    if (!state.sound && 'speechSynthesis' in window) speechSynthesis.cancel();
+    syncToolbar();
+  });
+  $('restart').addEventListener('click', newGame);
+  function syncToolbar() {
+    [...$('maps').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.key === state.map));
+    $('sound').setAttribute('aria-pressed', state.sound);
+    $('sound').querySelector('.emo').textContent = state.sound ? '🔊' : '🔇';
+  }
+
+  /* ---------- confetti ---------- */
+  let confettiRaf = 0, confettiCanvas = null;
+  function startConfetti() {
+    if (reduceMotion) return;
+    stopConfetti();
+    const c = confettiCanvas = document.createElement('canvas');
+    c.className = 'confetti'; document.body.append(c);
+    const dpr = window.devicePixelRatio || 1;
+    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+    const cg = c.getContext('2d'); cg.scale(dpr, dpr);
+    const colors = ['#2b59c3', '#ff6b5b', '#2fb36f', '#ffd34e', '#a463f2'];
+    const bits = Array.from({ length: 140 }, () => ({
+      x: Math.random() * innerWidth, y: -20 - Math.random() * innerHeight * 0.6,
+      vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3,
+      r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.2,
+      w: 8 + Math.random() * 8, h: 5 + Math.random() * 6, color: colors[Math.floor(Math.random() * colors.length)],
+    }));
+    const t0 = performance.now();
+    (function frame(now) {
+      cg.clearRect(0, 0, innerWidth, innerHeight);
+      for (const b of bits) {
+        b.x += b.vx; b.y += b.vy; b.r += b.vr;
+        cg.save(); cg.translate(b.x, b.y); cg.rotate(b.r); cg.fillStyle = b.color;
+        cg.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); cg.restore();
+      }
+      if (now - t0 < 4500) confettiRaf = requestAnimationFrame(frame); else stopConfetti();
+    })(t0);
+  }
+  function stopConfetti() {
+    cancelAnimationFrame(confettiRaf);
+    if (confettiCanvas) { confettiCanvas.remove(); confettiCanvas = null; }
+  }
+
+  // Wait for the first layout so items are placed for the real map size.
+  requestAnimationFrame(() => { resize(); newGame(); });
+})();
+</script>
+</body>
+</html>

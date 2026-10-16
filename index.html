@@ -57,7 +57,7 @@
   }
   header p { margin: 8px 0 0; font-weight: 700; font-size: 1.15rem; }
 
-  .games { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 24px; }
+  .games { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 24px; }
   .tile {
     display: grid; grid-template-rows: auto 1fr; border-radius: 28px; overflow: hidden;
     background: var(--paper); color: inherit; text-decoration: none;
@@ -97,6 +97,10 @@
   .art.orchard::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 22%; background: var(--grass); }
   .art.orchard .f { font-family: var(--emoji); font-size: 2.6rem; line-height: 1; }
   .art.orchard .k { font-family: var(--emoji); font-size: 4.4rem; line-height: 1; position: relative; z-index: 1; margin-top: 6px; }
+  .art.hole { background: #7ccf6a; position: relative; }
+  .art.hole .pit { width: 46%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 50% 58%, #05060a 0 30%, #141826 70%, #2d3448); box-shadow: inset 0 0 0 4px rgba(255,255,255,.35); display: grid; place-items: center; font-family: var(--emoji); font-size: 1.6rem; }
+  .art.hole .pit span { rotate: 30deg; scale: .8; }
+  .art.hole .near { position: absolute; font-family: var(--emoji); line-height: 1; }
   .art.zy { background: var(--paper); border-bottom: 3px dashed var(--sun-deep); gap: 10px; }
   .art.zy .card { width: 30%; aspect-ratio: 1; border-radius: 24%; display: grid; place-items: center; box-shadow: 0 5px 0 var(--sun-deep), 0 0 0 4px var(--cobalt); }
   .art.zy .card.z { font-weight: 900; font-size: 3.2rem; color: var(--cobalt-deep); }
@@ -142,6 +146,10 @@
     <a class="tile" href="zhuyin/">
       <div class="art zy" aria-hidden="true"><span class="card z">ㄆ</span><span class="eq">＝</span><span class="card p">🍇</span></div>
       <div class="info"><span class="name">ㄅㄆㄇ配對</span><span class="desc">看圖找注音，認識聲母</span></div>
+    </a>
+    <a class="tile" href="hole/">
+      <div class="art hole" aria-hidden="true"><span class="near" style="left:12%;top:14%;font-size:1.8rem">🌸</span><span class="near" style="right:10%;top:10%;font-size:2.8rem">🏠</span><span class="near" style="right:16%;bottom:10%;font-size:2rem">🚗</span><span class="pit"><span>🍎</span></span></div>
+      <div class="info"><span class="name">洞洞吃光光</span><span class="desc">拖著洞洞，把東西吃光光</span></div>
     </a>
   </main>
 </div>
