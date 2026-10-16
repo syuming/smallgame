@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>顏色小籃子</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="顏色籃">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#ffd34e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans+TC:wght@700;900&display=swap">
+<style>
+  /* Layout: same sunny play mat; toolbar, a pile of item tiles in the middle, a white shelf of colored baskets at the bottom. */
+  :root {
+    --sun: #ffd34e;
+    --sun-deep: #f5b82e;
+    --cobalt: #2b59c3;
+    --cobalt-deep: #1c3f94;
+    --paper: #ffffff;
+    --ink: #1e2a4a;
+    --leaf: #2fb36f;
+    --coral: #ff6b5b;
+    --font-display: "Baloo 2", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background-color: var(--sun);
+    background-image: radial-gradient(var(--sun-deep) 2px, transparent 2.5px);
+    background-size: 28px 28px;
+    color: var(--ink);
+    font-family: var(--font-body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  button { font: inherit; color: inherit; touch-action: manipulation; }
+  a.chip { color: inherit; text-decoration: none; }
+  button:focus-visible, a:focus-visible { outline: 4px solid var(--cobalt); outline-offset: 3px; }
+
+  .app { height: 100%; display: flex; flex-direction: column; gap: 12px; padding-block: 12px; }
+
+  /* ---------- toolbar (shared look) ---------- */
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .brand {
+    font-family: var(--font-display); font-weight: 900; font-size: clamp(1.6rem, 4vw, 2.3rem);
+    line-height: 1; margin: 0 auto 0 0; color: var(--cobalt-deep); letter-spacing: 0.04em;
+    text-shadow: 3px 3px 0 var(--paper);
+  }
+  .group { display: flex; gap: 8px; }
+  .chip {
+    min-width: 60px; height: 60px; padding: 0 12px; border: 0; border-radius: 18px;
+    background: var(--paper); box-shadow: 0 5px 0 var(--sun-deep); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: transform .12s, box-shadow .12s;
+  }
+  .chip:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--sun-deep); }
+  .chip[aria-pressed="true"] { background: var(--cobalt); color: var(--paper); box-shadow: 0 5px 0 var(--cobalt-deep); }
+  .chip .emo { font-family: var(--emoji); font-size: 2rem; line-height: 1; }
+  .chip .txt { font-weight: 700; font-size: 1rem; }
+  .dots { display: inline-flex; gap: 3px; }
+  .dots i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+
+  /* ---------- item pile ---------- */
+  .pile { flex: 1; min-height: 0; display: grid; place-items: center; }
+  .items { display: grid; gap: var(--gap, 14px); }
+  .item {
+    width: var(--size); height: var(--size); padding: 0; border: 0; cursor: grab;
+    border-radius: 24%; background: var(--paper); box-shadow: 0 6px 0 var(--sun-deep);
+    display: grid; place-items: center; position: relative; touch-action: none;
+    rotate: var(--tilt, 0deg); transition: translate .3s cubic-bezier(.3,1.4,.5,1), scale .15s, rotate .15s;
+  }
+  .item .emo { font-family: var(--emoji); font-size: calc(var(--size) * 0.58); line-height: 1; pointer-events: none; }
+  .item.selected { outline: 6px solid var(--cobalt); outline-offset: 2px; scale: 1.08; rotate: 0deg; }
+  .item.dragging { transition: none; z-index: 10; scale: 1.15; rotate: 0deg; cursor: grabbing; box-shadow: 0 14px 24px rgba(30,42,74,.3); }
+  .item.nope { animation: wiggle .4s ease; }
+  .item.gone { visibility: hidden; }
+  @keyframes wiggle { 0%,100% { rotate: 0deg; } 25% { rotate: -12deg; } 75% { rotate: 12deg; } }
+
+  /* ---------- baskets ---------- */
+  .shelf {
+    display: flex; justify-content: center; gap: clamp(10px, 2vw, 22px);
+    padding: 14px clamp(10px, 2vw, 22px) 18px; border-radius: 28px;
+    background: var(--paper); box-shadow: 0 7px 0 var(--sun-deep);
+  }
+  .basket {
+    flex: 1 1 0; min-width: 0; max-width: 230px; height: var(--basket-h, 150px); padding: 0; border: 0; background: none;
+    cursor: pointer; display: flex; flex-direction: column; align-items: stretch;
+    transition: translate .15s, scale .15s;
+  }
+  .basket .rim { height: 18%; border-radius: 14px 14px 6px 6px; background: var(--c-deep); }
+  .basket .body {
+    flex: 1; margin: 0 6%; border-radius: 0 0 30% 30% / 0 0 34% 34%;
+    background-color: var(--c);
+    background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.14) 0 6px, transparent 6px 16px),
+                      repeating-linear-gradient(0deg, rgba(0,0,0,.08) 0 3px, transparent 3px 14px);
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 6% 6% 10%;
+  }
+  .basket .got { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; font-family: var(--emoji); font-size: clamp(1.1rem, 2.6vw, 1.7rem); line-height: 1.1; min-height: 1.2em; }
+  .basket .got span { animation: pop .4s ease; }
+  .basket .label { color: var(--c-fg); font-weight: 900; font-size: clamp(1.1rem, 2.6vw, 1.6rem); text-shadow: 0 2px 0 var(--c-deep); }
+  .basket.hover, .basket.ready { translate: 0 -8px; scale: 1.05; }
+  .basket.yay { animation: hop .45s ease; }
+  @keyframes hop { 0%,100% { translate: 0 0; } 40% { translate: 0 -14px; } }
+  @keyframes pop { 0% { scale: .3; } 70% { scale: 1.2; } 100% { scale: 1; } }
+
+  /* ---------- win panel ---------- */
+  .win {
+    position: fixed; inset: 0; display: grid; place-items: center; z-index: 20;
+    background: rgba(30, 42, 74, .45);
+    padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  }
+  .panel {
+    background: var(--paper); border-radius: 32px; padding: 28px 32px; text-align: center;
+    box-shadow: 0 10px 0 var(--cobalt-deep); max-width: 420px; width: 100%; animation: pop .5s ease;
+  }
+  .panel .big { font-family: var(--emoji); font-size: 4.5rem; line-height: 1; }
+  .panel h2 { font-family: var(--font-display); font-weight: 900; font-size: 2.2rem; margin: 8px 0 4px; color: var(--cobalt-deep); text-wrap: balance; }
+  .stars { font-family: var(--emoji); font-size: 2.6rem; letter-spacing: 6px; margin: 4px 0 18px; }
+  .stars .dim { filter: grayscale(1); opacity: .3; }
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    height: 64px; padding: 0 26px; border: 0; border-radius: 20px; cursor: pointer;
+    font-weight: 900; font-size: 1.3rem; background: var(--cobalt); color: var(--paper);
+    box-shadow: 0 6px 0 var(--cobalt-deep);
+  }
+  .btn.alt { background: var(--coral); box-shadow: 0 6px 0 #d4483a; }
+  .btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--cobalt-deep); }
+  canvas.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 21; }
+
+  @media (max-width: 560px) {
+    .chip { min-width: 52px; height: 52px; }
+    .chip .txt { display: none; }
+    .shelf { padding-inline: 8px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .item, .basket { transition: none; }
+    .item.nope, .basket.yay, .basket .got span, .panel { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <a class="chip" href="../" aria-label="回遊戲選單"><span class="emo">🏠</span></a>
+    <h1 class="brand">顏色小籃子</h1>
+    <div class="group" id="levels" role="group" aria-label="選擇難度"></div>
+    <div class="group">
+      <button class="chip" id="sound" aria-pressed="true" aria-label="聲音開關"><span class="emo">🔊</span></button>
+      <button class="chip" id="restart" aria-label="重新開始"><span class="emo">🔄</span></button>
+    </div>
+  </header>
+  <main class="pile" id="pile"><div class="items" id="items"></div></main>
+  <footer class="shelf" id="shelf" aria-label="顏色籃子"></footer>
+</div>
+
+<div class="win" id="win" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="big">🎉</div>
+    <h2 id="winTitle">好棒！全部放好了！</h2>
+    <div class="stars" id="stars"></div>
+    <div class="actions">
+      <button class="btn" id="again">再玩一次</button>
+      <button class="btn alt" id="next">下一關 ➜</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Each color: basket colors plus things a 5-year-old knows to be that color.
+  const COLORS = {
+    red:    { name: '紅色', c: '#e94848', deep: '#b92f2f', fg: '#ffffff',
+              items: [['🍎','蘋果'],['🍓','草莓'],['🍒','櫻桃'],['🍅','番茄'],['🚒','消防車'],['🌹','玫瑰花'],['❤️','愛心']] },
+    yellow: { name: '黃色', c: '#ffc21a', deep: '#d99a00', fg: '#1e2a4a',
+              items: [['🍌','香蕉'],['🍋','檸檬'],['🌻','向日葵'],['🐥','小雞'],['⭐','星星'],['🌽','玉米'],['💛','愛心']] },
+    green:  { name: '綠色', c: '#36b45a', deep: '#23853f', fg: '#ffffff',
+              items: [['🐸','青蛙'],['🥦','花椰菜'],['🍀','幸運草'],['🥒','小黃瓜'],['🐢','烏龜'],['🌲','大樹'],['💚','愛心']] },
+    blue:   { name: '藍色', c: '#2f7fe0', deep: '#1f5bab', fg: '#ffffff',
+              items: [['🐳','鯨魚'],['💧','水滴'],['🫐','藍莓'],['🧢','帽子'],['👖','牛仔褲'],['🦋','蝴蝶'],['💙','愛心']] },
+    purple: { name: '紫色', c: '#9257d6', deep: '#6b3aa6', fg: '#ffffff',
+              items: [['🍇','葡萄'],['🍆','茄子'],['🔮','水晶球'],['☂️','雨傘'],['💜','愛心']] },
+    orange: { name: '橘色', c: '#ff8a2a', deep: '#cc6612', fg: '#ffffff',
+              items: [['🍊','橘子'],['🥕','紅蘿蔔'],['🎃','南瓜'],['🦊','狐狸'],['🏀','籃球'],['🧡','愛心']] },
+  };
+  const LEVELS = [
+    { label: '簡單', colors: 2, each: 3, pool: ['red', 'yellow', 'green', 'blue'] },
+    { label: '普通', colors: 3, each: 3, pool: ['red', 'yellow', 'green', 'blue'] },
+    { label: '挑戰', colors: 4, each: 3, pool: ['red', 'yellow', 'green', 'blue', 'purple', 'orange'] },
+  ];
+
+  const $ = id => document.getElementById(id);
+  const itemsEl = $('items'), pile = $('pile'), shelf = $('shelf');
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('colors.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('colors.' + k, JSON.stringify(v)); } catch {} },
+  };
+  const state = {
+    level: Math.min(LEVELS.length - 1, Math.max(0, store.get('level', 0) | 0)),
+    sound: store.get('sound', true) !== false,
+    items: [], baskets: [], selected: null, left: 0, wrong: 0,
+  };
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+
+  /* ---------- sound ---------- */
+  let ctx = null;
+  function audio() {
+    if (!state.sound) return null;
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    } catch { return null; }
+  }
+  function tone(freq, start, dur, type = 'sine', vol = 0.18) {
+    const a = audio(); if (!a) return;
+    const t = a.currentTime + start, o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+  }
+  const sfx = {
+    pick: () => tone(660, 0, 0.1, 'triangle', 0.1),
+    drop: () => [523, 659, 784].forEach((f, i) => tone(f, i * 0.08, 0.28)),
+    miss: () => { tone(330, 0, 0.18, 'sine', 0.1); tone(294, 0.12, 0.22, 'sine', 0.1); },
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.35, 'triangle', 0.15)),
+  };
+  function say(text) {
+    if (!state.sound || !('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-TW'; u.rate = 0.9; u.pitch = 1.2;
+      const v = speechSynthesis.getVoices().find(v => /zh[-_]TW/i.test(v.lang));
+      if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch {}
+  }
+
+  /* ---------- build a round ---------- */
+  function newGame() {
+    $('win').hidden = true; stopConfetti();
+    const lv = LEVELS[state.level];
+    const keys = shuffle([...lv.pool]).slice(0, lv.colors);
+    const deck = shuffle(keys.flatMap(k =>
+      shuffle([...COLORS[k].items]).slice(0, lv.each).map(([emoji, name]) => ({ color: k, emoji, name }))));
+    Object.assign(state, { selected: null, left: deck.length, wrong: 0 });
+
+    itemsEl.innerHTML = '';
+    state.items = deck.map(d => {
+      const el = document.createElement('button');
+      el.className = 'item'; el.setAttribute('aria-label', d.name);
+      el.style.setProperty('--tilt', (Math.random() * 12 - 6).toFixed(1) + 'deg');
+      el.innerHTML = `<span class="emo">${d.emoji}</span>`;
+      const item = { ...d, el, done: false };
+      bindDrag(item);
+      itemsEl.append(el);
+      return item;
+    });
+
+    shelf.innerHTML = '';
+    // Baskets in a fixed order so the same color always sits in the same place.
+    state.baskets = Object.keys(COLORS).filter(k => keys.includes(k)).map(k => {
+      const c = COLORS[k];
+      const el = document.createElement('button');
+      el.className = 'basket'; el.setAttribute('aria-label', c.name + '的籃子');
+      el.style.cssText = `--c:${c.c};--c-deep:${c.deep};--c-fg:${c.fg}`;
+      el.innerHTML = `<span class="rim"></span><span class="body"><span class="got"></span><span class="label">${c.name}</span></span>`;
+      const basket = { key: k, el, got: el.querySelector('.got') };
+      el.addEventListener('click', () => onBasketTap(basket));
+      shelf.append(el);
+      return basket;
+    });
+    syncToolbar();
+    layout();
+  }
+
+  /* ---------- drag, or tap item then tap basket ---------- */
+  let drag = null;
+  function bindDrag(item) {
+    const el = item.el;
+    el.addEventListener('pointerdown', e => {
+      if (item.done || drag) return;
+      e.preventDefault(); audio();
+      drag = { item, id: e.pointerId, x0: e.clientX, y0: e.clientY, moved: false, over: null };
+      try { el.setPointerCapture(e.pointerId); } catch {}
+    });
+    el.addEventListener('pointermove', e => {
+      if (!drag || drag.item !== item || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+      if (!drag.moved && Math.hypot(dx, dy) > 10) {
+        drag.moved = true; select(null); el.classList.add('dragging'); sfx.pick();
+      }
+      if (!drag.moved) return;
+      el.style.translate = `${dx}px ${dy}px`;
+      const over = basketAt(e.clientX, e.clientY);
+      if (over !== drag.over) {
+        drag.over?.el.classList.remove('hover');
+        over?.el.classList.add('hover');
+        drag.over = over;
+      }
+    });
+    const end = e => {
+      if (!drag || drag.item !== item || e.pointerId !== drag.id) return;
+      const d = drag; drag = null;
+      d.over?.el.classList.remove('hover');
+      if (!d.moved) {
+        if (e.type === 'pointerup') { select(state.selected === item ? null : item); if (state.selected) { sfx.pick(); say(item.name); } }
+        return;
+      }
+      el.classList.remove('dragging');
+      const target = e.type === 'pointerup' ? basketAt(e.clientX, e.clientY) : null;
+      place(item, target);
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(state.selected === item ? null : item); }
+    });
+  }
+  function basketAt(x, y) {
+    return state.baskets.find(b => {
+      const r = b.el.getBoundingClientRect();
+      return x >= r.left - 12 && x <= r.right + 12 && y >= r.top - 24 && y <= r.bottom + 12;
+    }) || null;
+  }
+  function select(item) {
+    state.selected?.el.classList.remove('selected');
+    state.selected = item;
+    item?.el.classList.add('selected');
+    state.baskets.forEach(b => b.el.classList.toggle('ready', !!item));
+  }
+  function onBasketTap(basket) {
+    audio();
+    if (state.selected) { const it = state.selected; select(null); place(it, basket); }
+    else { say(COLORS[basket.key].name); basket.el.classList.remove('yay'); void basket.el.offsetWidth; basket.el.classList.add('yay'); }
+  }
+
+  function place(item, basket) {
+    const el = item.el;
+    if (basket && basket.key === item.color) {
+      item.done = true;
+      el.classList.add('gone'); el.style.translate = '';
+      const s = document.createElement('span'); s.textContent = item.emoji; basket.got.append(s);
+      basket.el.classList.remove('yay'); void basket.el.offsetWidth; basket.el.classList.add('yay');
+      sfx.drop(); say(`${item.name}是${COLORS[item.color].name}`);
+      state.left--;
+      if (state.left === 0) setTimeout(win, 1100);
+      return;
+    }
+    if (basket) { state.wrong++; sfx.miss(); }
+    el.style.translate = '';          // fly back to its spot
+    if (basket) { el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope'); setTimeout(() => el.classList.remove('nope'), 450); }
+  }
+
+  function win() {
+    const stars = state.wrong <= 2 ? 3 : 2; // always encouraging: at least 2 stars
+    $('stars').innerHTML = [0, 1, 2].map(i => i < stars ? '⭐' : '<span class="dim">⭐</span>').join('');
+    $('next').hidden = state.level >= LEVELS.length - 1;
+    $('win').hidden = false;
+    sfx.win(); say('好棒！全部放好了！');
+    startConfetti();
+    $('again').focus();
+  }
+  $('again').addEventListener('click', newGame);
+  $('next').addEventListener('click', () => {
+    state.level = Math.min(LEVELS.length - 1, state.level + 1); store.set('level', state.level); newGame();
+  });
+
+  /* ---------- toolbar ---------- */
+  LEVELS.forEach((lv, i) => {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.setAttribute('aria-label', `${lv.label}，${lv.colors} 種顏色`);
+    b.innerHTML = `<span class="dots">${'<i></i>'.repeat(i + 1)}</span><span class="txt">${lv.label}</span>`;
+    b.addEventListener('click', () => { state.level = i; store.set('level', i); newGame(); });
+    $('levels').append(b);
+  });
+  $('sound').addEventListener('click', () => {
+    state.sound = !state.sound; store.set('sound', state.sound);
+    if (!state.sound && 'speechSynthesis' in window) speechSynthesis.cancel();
+    syncToolbar();
+  });
+  $('restart').addEventListener('click', newGame);
+  function syncToolbar() {
+    [...$('levels').children].forEach((b, i) => b.setAttribute('aria-pressed', i === state.level));
+    $('sound').setAttribute('aria-pressed', state.sound);
+    $('sound').querySelector('.emo').textContent = state.sound ? '🔊' : '🔇';
+  }
+
+  /* ---------- sizing ---------- */
+  function layout() {
+    const vh = document.documentElement.clientHeight;
+    shelf.style.setProperty('--basket-h', Math.round(Math.max(110, Math.min(190, vh * 0.24))) + 'px');
+    const n = state.items.length; if (!n) return;
+    const W = pile.clientWidth, H = pile.clientHeight;
+    const gap = Math.max(10, Math.min(18, Math.round(Math.min(W, H) / 30)));
+    let best = { size: 0, cols: 1 };
+    for (let cols = 1; cols <= n; cols++) {
+      const rows = Math.ceil(n / cols);
+      const size = Math.min((W - gap * (cols - 1)) / cols, (H - 10 - gap * (rows - 1)) / rows);
+      if (size > best.size) best = { size, cols };
+    }
+    const size = Math.max(56, Math.min(130, Math.floor(best.size)));
+    itemsEl.style.setProperty('--size', size + 'px');
+    itemsEl.style.setProperty('--gap', gap + 'px');
+    itemsEl.style.gridTemplateColumns = `repeat(${best.cols}, ${size}px)`;
+  }
+  new ResizeObserver(layout).observe(pile);
+
+  /* ---------- confetti ---------- */
+  let confettiRaf = 0, confettiCanvas = null;
+  function startConfetti() {
+    if (reduceMotion) return;
+    stopConfetti();
+    const c = confettiCanvas = document.createElement('canvas');
+    c.className = 'confetti'; document.body.append(c);
+    const dpr = window.devicePixelRatio || 1;
+    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+    const g = c.getContext('2d'); g.scale(dpr, dpr);
+    const colors = ['#e94848', '#ffc21a', '#36b45a', '#2f7fe0', '#9257d6', '#ff8a2a'];
+    const bits = Array.from({ length: 140 }, () => ({
+      x: Math.random() * innerWidth, y: -20 - Math.random() * innerHeight * 0.6,
+      vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3,
+      r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.2,
+      w: 8 + Math.random() * 8, h: 5 + Math.random() * 6, color: colors[Math.floor(Math.random() * colors.length)],
+    }));
+    const t0 = performance.now();
+    (function frame(now) {
+      g.clearRect(0, 0, innerWidth, innerHeight);
+      for (const b of bits) {
+        b.x += b.vx; b.y += b.vy; b.r += b.vr;
+        g.save(); g.translate(b.x, b.y); g.rotate(b.r); g.fillStyle = b.color;
+        g.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); g.restore();
+      }
+      if (now - t0 < 4500) confettiRaf = requestAnimationFrame(frame); else stopConfetti();
+    })(t0);
+  }
+  function stopConfetti() {
+    cancelAnimationFrame(confettiRaf);
+    if (confettiCanvas) { confettiCanvas.remove(); confettiCanvas = null; }
+  }
+
+  newGame();
+})();
+</script>
+</body>
+</html>
