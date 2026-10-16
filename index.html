@@ -89,8 +89,19 @@
   .mb .e { font-family: var(--emoji); font-size: 2.6rem; line-height: 1; margin-bottom: -6px; position: relative; }
   .mb .r { width: 100%; height: 10px; border-radius: 5px; background: var(--d); }
   .mb .b { width: 84%; height: 44px; border-radius: 0 0 40% 40%; background: var(--c); }
-  .tile.soon { background: rgba(255,255,255,.5); box-shadow: none; border: 4px dashed var(--sun-deep); }
-  .tile.soon .art { background: none; font-family: var(--emoji); font-size: 4rem; }
+  .art.jigsaw { background: #ffe9b8; }
+  .jig { width: 46%; aspect-ratio: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 6px; rotate: -5deg; }
+  .jig i { border-radius: 10px; background: var(--c); border: 4px solid var(--paper); box-shadow: 0 4px 0 var(--sun-deep); display: grid; place-items: center; font-style: normal; font-family: var(--emoji); font-size: 2rem; }
+  .jig i.out { translate: 22px 14px; rotate: 12deg; }
+  .art.orchard { background: #bfe9ff; position: relative; flex-direction: column; gap: 0; }
+  .art.orchard::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 22%; background: var(--grass); }
+  .art.orchard .f { font-family: var(--emoji); font-size: 2.6rem; line-height: 1; }
+  .art.orchard .k { font-family: var(--emoji); font-size: 4.4rem; line-height: 1; position: relative; z-index: 1; margin-top: 6px; }
+  .art.zy { background: var(--paper); border-bottom: 3px dashed var(--sun-deep); gap: 10px; }
+  .art.zy .card { width: 30%; aspect-ratio: 1; border-radius: 24%; display: grid; place-items: center; box-shadow: 0 5px 0 var(--sun-deep), 0 0 0 4px var(--cobalt); }
+  .art.zy .card.z { font-weight: 900; font-size: 3.2rem; color: var(--cobalt-deep); }
+  .art.zy .card.p { font-family: var(--emoji); font-size: 3rem; }
+  .art.zy .eq { font-weight: 900; font-size: 2rem; color: var(--cobalt-deep); }
 
   @media (prefers-reduced-motion: reduce) { .tile { transition: none; } }
 </style>
@@ -118,10 +129,20 @@
       </div>
       <div class="info"><span class="name">顏色小籃子</span><span class="desc">把東西放進一樣顏色的籃子</span></div>
     </a>
-    <div class="tile soon" aria-label="更多遊戲準備中">
-      <div class="art" aria-hidden="true">🎈</div>
-      <div class="info"><span class="name">更多遊戲</span><span class="desc">準備中，敬請期待</span></div>
-    </div>
+    <a class="tile" href="puzzle/">
+      <div class="art jigsaw" aria-hidden="true">
+        <span class="jig"><i style="--c:#ffb35c">🦁</i><i style="--c:#ffe08a"></i><i style="--c:#e3a64a"></i><i class="out" style="--c:#ffcf7a"></i></span>
+      </div>
+      <div class="info"><span class="name">拼拼樂</span><span class="desc">把拼圖片放回原位</span></div>
+    </a>
+    <a class="tile" href="catch/">
+      <div class="art orchard" aria-hidden="true"><span class="f">🍎</span><span class="k">🧺</span></div>
+      <div class="info"><span class="name">接水果</span><span class="desc">移動籃子，接住掉下來的水果</span></div>
+    </a>
+    <a class="tile" href="zhuyin/">
+      <div class="art zy" aria-hidden="true"><span class="card z">ㄆ</span><span class="eq">＝</span><span class="card p">🍇</span></div>
+      <div class="info"><span class="name">ㄅㄆㄇ配對</span><span class="desc">看圖找注音，認識聲母</span></div>
+    </a>
   </main>
 </div>
 </body>
