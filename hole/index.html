@@ -72,6 +72,8 @@
   .chip[aria-pressed="true"] { background: var(--cobalt); color: var(--paper); box-shadow: 0 5px 0 var(--cobalt-deep); }
   .chip .emo { font-family: var(--emoji); font-size: 2rem; line-height: 1; }
   .chip .txt { font-weight: 700; font-size: 1rem; }
+  .sz { display: inline-grid; place-items: center; width: 30px; height: 30px; }
+  .sz i { display: block; border: 3px solid currentColor; border-radius: 5px; }
 
   /* ---------- map ---------- */
   .stage {
@@ -129,7 +131,12 @@
   @keyframes pop { 0% { scale: .4; } 70% { scale: 1.1; } 100% { scale: 1; } }
   canvas.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
 
-  @media (max-width: 1180px) { .chip .txt { display: none; } }
+  @media (max-width: 1180px) {
+    .chip .txt { display: none; }
+    .chip { min-width: 56px; height: 56px; padding: 0 8px; }
+    .chip .emo { font-size: 1.8rem; }
+    .bar { gap: 8px 12px; }
+  }
   @media (max-width: 560px) {
     .chip { min-width: 46px; height: 46px; padding: 0 8px; border-radius: 14px; }
     .chip .emo { font-size: 1.6rem; }
@@ -146,6 +153,7 @@
     <a class="chip" href="../" aria-label="回遊戲選單"><span class="emo">🏠</span></a>
     <h1 class="brand">洞洞吃光光</h1>
     <div class="group" id="maps" role="group" aria-label="選擇場景"></div>
+    <div class="group" id="sizes" role="group" aria-label="選擇地圖大小"></div>
     <div class="group">
       <button class="chip" id="sound" aria-pressed="true" aria-label="聲音開關"><span class="emo">🔊</span></button>
       <button class="chip" id="restart" aria-label="重新開始"><span class="emo">🔄</span></button>
@@ -178,7 +186,6 @@
   /* All positions and sizes are in map units: 1 unit = the screen's shorter side at normal zoom.
      The world is twice the screen in each direction; the camera follows the hole and zooms out as it grows. */
   const TIER_SIZE  = [0.05, 0.075, 0.11, 0.16, 0.22];
-  const TIER_COUNT = [30, 22, 13, 8, 4];
   const MAPS = {
     park: { label: '公園', icon: '🌳', tiers: [
       [['🌸','花'],['🍎','蘋果'],['🍄','香菇'],['🌼','小花'],['🍓','草莓'],['🦋','蝴蝶']],
@@ -218,8 +225,12 @@
       [['🌋','火山'],['⛰️','大山']] ] },
   };
   const MAP_KEYS = Object.keys(MAPS);
-  const WORLD = 2;                       // world = 2× the screen in each direction
-  const R0 = 0.045, GROW = 0.4, EAT = 0.8, RMAX = 0.3, SPEED = 1.5;
+  // Small: the whole map fits on one screen. Big: 2× the screen each way, with a following camera.
+  const SIZES = {
+    small: { label: '小地圖', world: 1, counts: [12, 9, 6, 4, 2],   grow: 0.5, rmax: 0.25, stars: 150, icon: 14 },
+    big:   { label: '大地圖', world: 2, counts: [30, 22, 13, 8, 4], grow: 0.4, rmax: 0.3,  stars: 300, icon: 26 },
+  };
+  const R0 = 0.045, EAT = 0.8, SPEED = 1.5;
   const HOLE_ON_SCREEN = 0.17;           // zoom out so the hole never covers more than this
   const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 
@@ -231,6 +242,7 @@
   };
   const state = {
     map: MAPS[store.get('map', 'park')] ? store.get('map', 'park') : 'park',
+    size: SIZES[store.get('size', 'big')] ? store.get('size', 'big') : 'big',
     sound: store.get('sound', true) !== false,
     running: false, items: [], deco: null, eaten: 0, total: 0, canEat: 0, elapsed: 0, last: 0, bumpCooldown: 0,
     world: { w: 2.6, h: 2 },
@@ -289,12 +301,12 @@
   function seeded(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
   function buildWorld() {
     const { W, H } = state, m = Math.min(W, H) || 1;
-    const ww = WORLD * (W || 1.3) / m, wh = WORLD * (H || 1) / m;
+    const cfg = SIZES[state.size], ww = cfg.world * (W || 1.3) / m, wh = cfg.world * (H || 1) / m;
     state.world = { w: ww, h: wh };
     const tiers = MAPS[state.map].tiers, items = [];
     // Biggest things first, kept apart, with the starting spot in the middle left clear.
     for (let t = tiers.length - 1; t >= 0; t--) {
-      for (let k = 0; k < TIER_COUNT[t]; k++) {
+      for (let k = 0; k < cfg.counts[t]; k++) {
         const [e, name] = tiers[t][k % tiers[t].length];
         const r = TIER_SIZE[t] / 2;
         for (let tries = 0; tries < 400; tries++) {
@@ -419,7 +431,8 @@
   function eat(it) {
     it.st = 'gone';
     const h = state.hole;
-    h.r = Math.min(RMAX, Math.sqrt(h.r * h.r + GROW * (it.s / 2) ** 2));
+    const cfg = SIZES[state.size];
+    h.r = Math.min(cfg.rmax, Math.sqrt(h.r * h.r + cfg.grow * (it.s / 2) ** 2));
     h.gulp = 1;
     sfx.gulp(it.tier);
     state.eaten++;
@@ -602,7 +615,7 @@
   function finish() {
     stop();
     setTimeout(() => {
-      const stars = state.elapsed <= 300 ? 3 : 2; // always encouraging: at least 2 stars
+      const stars = state.elapsed <= SIZES[state.size].stars ? 3 : 2; // always encouraging: at least 2 stars
       $('stars').innerHTML = [0, 1, 2].map(i => i < stars ? '⭐' : '<span class="dim">⭐</span>').join('');
       $('winTitle').textContent = `${MAPS[state.map].label}全部吃光光了！`;
       $('win').hidden = false;
@@ -627,6 +640,13 @@
     b.addEventListener('click', () => { state.map = key; store.set('map', key); newGame(); });
     $('maps').append(b);
   }
+  for (const [key, sz] of Object.entries(SIZES)) {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.dataset.key = key; b.setAttribute('aria-label', sz.label);
+    b.innerHTML = `<span class="sz"><i style="width:${sz.icon}px;height:${sz.icon}px"></i></span><span class="txt">${sz.label}</span>`;
+    b.addEventListener('click', () => { state.size = key; store.set('size', key); newGame(); });
+    $('sizes').append(b);
+  }
   $('sound').addEventListener('click', () => {
     state.sound = !state.sound; store.set('sound', state.sound);
     if (!state.sound && 'speechSynthesis' in window) speechSynthesis.cancel();
@@ -635,6 +655,7 @@
   $('restart').addEventListener('click', newGame);
   function syncToolbar() {
     [...$('maps').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.key === state.map));
+    [...$('sizes').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.key === state.size));
     $('sound').setAttribute('aria-pressed', state.sound);
     $('sound').querySelector('.emo').textContent = state.sound ? '🔊' : '🔇';
   }
