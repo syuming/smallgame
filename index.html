@@ -84,6 +84,11 @@
   .art.grass { background-color: var(--grass); background-image: radial-gradient(var(--grass-deep) 2px, transparent 2.5px); background-size: 18px 18px; flex-direction: column; gap: 0; }
   .art.grass .peek { font-family: var(--emoji); font-size: 4.2rem; line-height: 1; margin-bottom: -6px; position: relative; }
   .art.grass .hole { width: 46%; height: 18%; border-radius: 50%; background: var(--dirt); }
+  .art.shelf { background: var(--paper); border-bottom: 3px dashed var(--sun-deep); gap: 6%; }
+  .mb { width: 22%; display: flex; flex-direction: column; align-items: center; }
+  .mb .e { font-family: var(--emoji); font-size: 2.6rem; line-height: 1; margin-bottom: -6px; position: relative; }
+  .mb .r { width: 100%; height: 10px; border-radius: 5px; background: var(--d); }
+  .mb .b { width: 84%; height: 44px; border-radius: 0 0 40% 40%; background: var(--c); }
   .tile.soon { background: rgba(255,255,255,.5); box-shadow: none; border: 4px dashed var(--sun-deep); }
   .tile.soon .art { background: none; font-family: var(--emoji); font-size: 4rem; }
 
@@ -104,6 +109,14 @@
     <a class="tile" href="whack/">
       <div class="art grass" aria-hidden="true"><span class="peek">🐹</span><span class="hole"></span></div>
       <div class="info"><span class="name">敲敲地鼠</span><span class="desc">地鼠跑出來，快敲一下</span></div>
+    </a>
+    <a class="tile" href="colors/">
+      <div class="art shelf" aria-hidden="true">
+        <span class="mb" style="--c:#e94848;--d:#b92f2f"><span class="e">🍎</span><span class="r"></span><span class="b"></span></span>
+        <span class="mb" style="--c:#ffc21a;--d:#d99a00"><span class="e">🍌</span><span class="r"></span><span class="b"></span></span>
+        <span class="mb" style="--c:#2f7fe0;--d:#1f5bab"><span class="e">🐳</span><span class="r"></span><span class="b"></span></span>
+      </div>
+      <div class="info"><span class="name">顏色小籃子</span><span class="desc">把東西放進一樣顏色的籃子</span></div>
     </a>
     <div class="tile soon" aria-label="更多遊戲準備中">
       <div class="art" aria-hidden="true">🎈</div>
