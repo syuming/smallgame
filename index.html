@@ -24,6 +24,9 @@
     --cobalt-deep: #1c3f94;
     --paper: #ffffff;
     --ink: #1e2a4a;
+    --grass: #5cbf5a;
+    --grass-deep: #3f9a43;
+    --dirt: #6b4426;
     --font-display: "Baloo 2", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
     --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
     --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
@@ -78,6 +81,9 @@
   .name { font-family: var(--font-display); font-weight: 900; font-size: 1.8rem; line-height: 1.2; }
   .desc { font-weight: 700; font-size: 1rem; opacity: .75; }
 
+  .art.grass { background-color: var(--grass); background-image: radial-gradient(var(--grass-deep) 2px, transparent 2.5px); background-size: 18px 18px; flex-direction: column; gap: 0; }
+  .art.grass .peek { font-family: var(--emoji); font-size: 4.2rem; line-height: 1; margin-bottom: -6px; position: relative; }
+  .art.grass .hole { width: 46%; height: 18%; border-radius: 50%; background: var(--dirt); }
   .tile.soon { background: rgba(255,255,255,.5); box-shadow: none; border: 4px dashed var(--sun-deep); }
   .tile.soon .art { background: none; font-family: var(--emoji); font-size: 4rem; }
 
@@ -94,6 +100,10 @@
     <a class="tile" href="memory/">
       <div class="art" aria-hidden="true"><span class="mini back">★</span><span class="mini front">🐶</span></div>
       <div class="info"><span class="name">翻翻樂</span><span class="desc">翻開卡片，找出一樣的</span></div>
+    </a>
+    <a class="tile" href="whack/">
+      <div class="art grass" aria-hidden="true"><span class="peek">🐹</span><span class="hole"></span></div>
+      <div class="info"><span class="name">敲敲地鼠</span><span class="desc">地鼠跑出來，快敲一下</span></div>
     </a>
     <div class="tile soon" aria-label="更多遊戲準備中">
       <div class="art" aria-hidden="true">🎈</div>

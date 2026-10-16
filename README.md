@@ -9,6 +9,7 @@
 | 遊戲 | 資料夾 | 網址 |
 |------|--------|------|
 | 翻翻樂記憶卡 | `memory/` | https://syuming.github.io/smallgame/memory/ |
+| 敲敲地鼠 | `whack/` | https://syuming.github.io/smallgame/whack/ |
 
 ## 目錄結構
 
@@ -17,10 +18,11 @@ smallgame/
 ├── index.html            遊戲選單首頁
 ├── manifest.webmanifest  首頁的「加入主畫面」設定
 ├── icons/                首頁圖示
-└── memory/               翻翻樂記憶卡
-    ├── index.html
-    ├── manifest.webmanifest
-    └── icons/
+├── memory/               翻翻樂記憶卡
+│   ├── index.html
+│   ├── manifest.webmanifest
+│   └── icons/
+└── whack/                敲敲地鼠（同上結構）
 ```
 
 ## 翻翻樂記憶卡
@@ -30,6 +32,14 @@ smallgame/
 - 三種主題：動物、水果、交通工具；三種難度：簡單（3 對）、普通（4 對）、挑戰（6 對）。
 - 沒有失敗或扣分；全部找到後一定會得到至少 2 顆星。
 - 左上角 🏠 按鈕可回到遊戲選單。
+
+## 敲敲地鼠
+
+- 3×3 的草地上，地鼠會從洞裡冒出來，點一下就敲到。
+- 三種模式：**地鼠**（每隻都可以敲）、**動物**（只敲指定的動物）、**數字**（只敲舉著指定數字 1–9 的地鼠）。
+- 三種速度：慢慢、普通、快快。
+- 沒有倒數計時，敲到 10 隻就過關；敲錯只會輕輕搖一下，不扣分，過關至少 2 顆星。
+- 切換到其他 App 或關掉螢幕時會自動暫停。
 
 ## 新增一款遊戲
 
