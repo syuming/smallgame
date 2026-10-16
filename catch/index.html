@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>接水果</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="接水果">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#ffd34e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans+TC:wght@700;900&display=swap">
+<style>
+  /* Layout: same sunny play mat; toolbar, an orchard canvas (sky, tree tops, grass) where fruit falls into a basket, and a 10-slot tray. */
+  :root {
+    --sun: #ffd34e;
+    --sun-deep: #f5b82e;
+    --cobalt: #2b59c3;
+    --cobalt-deep: #1c3f94;
+    --paper: #ffffff;
+    --ink: #1e2a4a;
+    --sky: #bfe9ff;
+    --grass: #5cbf5a;
+    --grass-deep: #3f9a43;
+    --leaf: #2fb36f;
+    --coral: #ff6b5b;
+    --font-display: "Baloo 2", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background-color: var(--sun);
+    background-image: radial-gradient(var(--sun-deep) 2px, transparent 2.5px);
+    background-size: 28px 28px;
+    color: var(--ink);
+    font-family: var(--font-body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  button { font: inherit; color: inherit; touch-action: manipulation; }
+  a.chip { color: inherit; text-decoration: none; }
+  button:focus-visible, a:focus-visible { outline: 4px solid var(--cobalt); outline-offset: 3px; }
+
+  .app { height: 100%; display: flex; flex-direction: column; gap: 10px; padding-block: 12px; }
+
+  /* ---------- toolbar (shared look) ---------- */
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .brand {
+    font-family: var(--font-display); font-weight: 900; font-size: clamp(1.6rem, 4vw, 2.3rem);
+    line-height: 1; margin: 0 auto 0 0; color: var(--cobalt-deep); letter-spacing: 0.04em;
+    text-shadow: 3px 3px 0 var(--paper);
+  }
+  .group { display: flex; gap: 8px; }
+  .chip {
+    min-width: 60px; height: 60px; padding: 0 12px; border: 0; border-radius: 18px;
+    background: var(--paper); box-shadow: 0 5px 0 var(--sun-deep); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: transform .12s, box-shadow .12s;
+  }
+  .chip:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--sun-deep); }
+  .chip[aria-pressed="true"] { background: var(--cobalt); color: var(--paper); box-shadow: 0 5px 0 var(--cobalt-deep); }
+  .chip .emo { font-family: var(--emoji); font-size: 2rem; line-height: 1; }
+  .chip .txt { font-weight: 700; font-size: 1rem; }
+  .dots { display: inline-flex; gap: 3px; }
+  .dots i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+
+  /* ---------- orchard ---------- */
+  .stage {
+    flex: 1; min-height: 0; position: relative; border-radius: 28px; overflow: hidden;
+    background: var(--sky); box-shadow: 0 8px 0 var(--sun-deep); touch-action: none; cursor: grab;
+  }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hint {
+    position: absolute; left: 50%; bottom: 24%; translate: -50% 0; padding: 6px 18px; border-radius: 999px;
+    background: rgba(255,255,255,.85); font-weight: 900; font-size: 1.2rem; pointer-events: none; white-space: nowrap;
+  }
+  .start { position: absolute; inset: 0; display: grid; place-items: center; z-index: 4; pointer-events: none; }
+  .start button {
+    pointer-events: auto; width: 150px; height: 150px; border-radius: 50%; border: 6px solid var(--paper);
+    background: var(--coral); color: var(--paper); box-shadow: 0 8px 0 #d4483a; cursor: pointer;
+    font-weight: 900; font-size: 1.4rem; display: grid; place-content: center; gap: 2px;
+    animation: breathe 1.6s ease-in-out infinite;
+  }
+  .start button .play { font-size: 3.4rem; line-height: 1; translate: 6% 0; }
+  .start button:active { transform: translateY(6px); box-shadow: 0 2px 0 #d4483a; }
+  @keyframes breathe { 50% { scale: 1.06; } }
+
+  /* ---------- caught tray ---------- */
+  .tray { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+  .slot {
+    width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,.55);
+    border: 3px dashed var(--sun-deep); display: grid; place-items: center;
+    font-family: var(--emoji); font-size: 1.5rem;
+  }
+  .slot.full { background: var(--paper); border: 3px solid var(--leaf); animation: pop .4s ease; }
+  @keyframes pop { 0% { scale: .4; } 70% { scale: 1.15; } 100% { scale: 1; } }
+
+  /* ---------- win panel ---------- */
+  .win {
+    position: fixed; inset: 0; display: grid; place-items: center; z-index: 5;
+    background: rgba(30, 42, 74, .45);
+    padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  }
+  .panel {
+    background: var(--paper); border-radius: 32px; padding: 28px 32px; text-align: center;
+    box-shadow: 0 10px 0 var(--cobalt-deep); max-width: 420px; width: 100%; animation: pop .5s ease;
+  }
+  .panel .big { font-family: var(--emoji); font-size: 4.5rem; line-height: 1; }
+  .panel h2 { font-family: var(--font-display); font-weight: 900; font-size: 2.2rem; margin: 8px 0 4px; color: var(--cobalt-deep); text-wrap: balance; }
+  .stars { font-family: var(--emoji); font-size: 2.6rem; letter-spacing: 6px; margin: 4px 0 18px; }
+  .stars .dim { filter: grayscale(1); opacity: .3; }
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    height: 64px; padding: 0 26px; border: 0; border-radius: 20px; cursor: pointer;
+    font-weight: 900; font-size: 1.3rem; background: var(--cobalt); color: var(--paper);
+    box-shadow: 0 6px 0 var(--cobalt-deep);
+  }
+  .btn.alt { background: var(--coral); box-shadow: 0 6px 0 #d4483a; }
+  .btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--cobalt-deep); }
+  canvas.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
+
+  @media (max-width: 560px) {
+    .chip { min-width: 52px; height: 52px; }
+    .chip .txt { display: none; }
+    .slot { width: 36px; height: 36px; font-size: 1.2rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .slot.full, .panel, .start button { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <a class="chip" href="../" aria-label="回遊戲選單"><span class="emo">🏠</span></a>
+    <h1 class="brand">接水果</h1>
+    <div class="group" id="levels" role="group" aria-label="選擇難度"></div>
+    <div class="group">
+      <button class="chip" id="sound" aria-pressed="true" aria-label="聲音開關"><span class="emo">🔊</span></button>
+      <button class="chip" id="restart" aria-label="重新開始"><span class="emo">🔄</span></button>
+    </div>
+  </header>
+  <main class="stage" id="stage" aria-label="果園，手指左右移動籃子">
+    <canvas id="cv"></canvas>
+    <div class="hint" id="hint">👆 手指左右移動籃子</div>
+    <div class="start" id="start"><button id="go" aria-label="開始"><span class="play">▶</span><span id="goText">開始</span></button></div>
+  </main>
+  <footer class="tray" id="tray" aria-label="接到的水果"></footer>
+</div>
+
+<div class="win" id="win" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="big">🧺</div>
+    <h2 id="winTitle">好棒！接到 10 個水果！</h2>
+    <div class="stars" id="stars"></div>
+    <div class="actions">
+      <button class="btn" id="again">再玩一次</button>
+      <button class="btn alt" id="next">快一點 ➜</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const GOAL = 10;
+  const FRUITS = ['🍎', '🍊', '🍌', '🍇', '🍓', '🍑', '🍐', '🍒', '🍉', '🥝'];
+  const BUGS = ['🐛', '🐌'];
+  // fall: seconds to cross the stage; every: ms between drops; bugs: share of drops that are bugs.
+  const LEVELS = [
+    { label: '簡單', fall: 4.6, every: 1500, bugs: 0 },
+    { label: '普通', fall: 3.4, every: 1150, bugs: 0.2 },
+    { label: '挑戰', fall: 2.5, every: 850,  bugs: 0.3 },
+  ];
+  const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), cv = $('cv'), g = cv.getContext('2d'), tray = $('tray');
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('catch.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('catch.' + k, JSON.stringify(v)); } catch {} },
+  };
+  const state = {
+    level: Math.min(LEVELS.length - 1, Math.max(0, store.get('level', 0) | 0)),
+    sound: store.get('sound', true) !== false,
+    running: false, caught: 0, bugs: 0,
+    W: 0, H: 0, basket: { x: 0, target: 0, shake: 0, bounce: 0 }, drops: [], pops: [], nextDrop: 0, last: 0,
+  };
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const rand = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  /* ---------- sound ---------- */
+  let ctx = null;
+  function audio() {
+    if (!state.sound) return null;
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    } catch { return null; }
+  }
+  function tone(freq, start, dur, type = 'sine', vol = 0.18) {
+    const a = audio(); if (!a) return;
+    const t = a.currentTime + start, o = a.createOscillator(), gn = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    gn.gain.setValueAtTime(0.0001, t);
+    gn.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(gn).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+  }
+  const sfx = {
+    catch: n => { const f = 523 * Math.pow(2, (n % 8) / 12); tone(f, 0, 0.14, 'triangle', 0.15); tone(f * 1.5, 0.07, 0.2, 'triangle', 0.12); },
+    bug: () => { tone(330, 0, 0.18, 'sine', 0.1); tone(294, 0.12, 0.22, 'sine', 0.1); },
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.35, 'triangle', 0.15)),
+  };
+  function say(text) {
+    if (!state.sound || !('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-TW'; u.rate = 0.9; u.pitch = 1.2;
+      const v = speechSynthesis.getVoices().find(v => /zh[-_]TW/i.test(v.lang));
+      if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch {}
+  }
+
+  /* ---------- geometry ---------- */
+  const size = () => Math.max(56, Math.min(state.W * 0.17, state.H * 0.2, 140)); // basket size
+  const fruitSize = () => size() * 0.62;
+  const groundY = () => state.H * 0.86;
+  function resize() {
+    const r = stage.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const oldW = state.W;
+    state.W = r.width; state.H = r.height;
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const b = state.basket;
+    if (!oldW) { b.x = b.target = state.W / 2; }
+    else { b.x = b.x / oldW * state.W; b.target = b.target / oldW * state.W; }
+    draw();
+  }
+  new ResizeObserver(resize).observe(stage);
+
+  /* ---------- input: the basket follows the finger ---------- */
+  function aim(e) {
+    const r = stage.getBoundingClientRect(), half = size() / 2;
+    state.basket.target = Math.max(half, Math.min(state.W - half, e.clientX - r.left));
+  }
+  stage.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; aim(e); try { stage.setPointerCapture(e.pointerId); } catch {} });
+  stage.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || e.buttons || e.pressure) aim(e); });
+  document.addEventListener('keydown', e => {
+    const step = state.W * 0.12, half = size() / 2, b = state.basket;
+    if (e.key === 'ArrowLeft') b.target = Math.max(half, b.target - step);
+    if (e.key === 'ArrowRight') b.target = Math.min(state.W - half, b.target + step);
+  });
+
+  /* ---------- game loop ---------- */
+  function spawn() {
+    const lv = LEVELS[state.level], s = fruitSize();
+    const bug = Math.random() < lv.bugs;
+    state.drops.push({
+      x: s / 2 + Math.random() * (state.W - s), y: -s, ch: bug ? rand(BUGS) : rand(FRUITS), bug,
+      spin: (Math.random() - 0.5) * 2, rot: 0,
+    });
+  }
+  function tick(now) {
+    if (!state.running) return;
+    const dt = Math.min(0.05, (now - state.last) / 1000 || 0); state.last = now;
+    const lv = LEVELS[state.level], b = state.basket, bs = size();
+    b.x += (b.target - b.x) * Math.min(1, dt * 14);
+    b.shake = Math.max(0, b.shake - dt * 3); b.bounce = Math.max(0, b.bounce - dt * 4);
+
+    state.nextDrop -= dt * 1000;
+    if (state.nextDrop <= 0) { spawn(); state.nextDrop = lv.every * (0.8 + Math.random() * 0.4); }
+
+    const speed = state.H / lv.fall, top = groundY() - bs * 0.62;
+    for (const d of state.drops) {
+      d.y += speed * dt; d.rot += d.spin * dt;
+      if (!d.done && d.y >= top && d.y <= top + bs * 0.45 && Math.abs(d.x - b.x) < bs * 0.55) {
+        d.done = true;
+        if (d.bug) { state.bugs++; b.shake = 1; sfx.bug(); state.pops.push({ x: b.x, y: top - 10, ch: '💦', t: 0 }); }
+        else {
+          const slot = tray.children[state.caught]; slot.textContent = d.ch; slot.classList.add('full');
+          state.caught++; b.bounce = 1; sfx.catch(state.caught); state.pops.push({ x: b.x, y: top - 10, ch: '✨', t: 0 });
+          if (state.caught >= GOAL) { finish(); }
+        }
+      }
+    }
+    state.drops = state.drops.filter(d => !d.done && d.y < state.H + 80);
+    state.pops = state.pops.filter(p => (p.t += dt) < 0.6);
+    draw();
+    if (state.running) requestAnimationFrame(tick);
+  }
+
+  function draw() {
+    const { W, H } = state; if (!W) return;
+    g.clearRect(0, 0, W, H);
+    // tree tops along the top edge
+    g.fillStyle = '#4caf50';
+    for (let x = -20; x < W + 60; x += 90) { g.beginPath(); g.arc(x, -10, 70, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#3f9a43';
+    for (let x = 25; x < W + 60; x += 90) { g.beginPath(); g.arc(x, -30, 60, 0, Math.PI * 2); g.fill(); }
+    // grass
+    const gy = groundY();
+    g.fillStyle = '#5cbf5a'; g.fillRect(0, gy, W, H - gy);
+    g.fillStyle = '#3f9a43'; g.fillRect(0, gy, W, 6);
+
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    const fs = fruitSize();
+    g.font = `${fs}px ${EMOJI_FONT}`;
+    for (const d of state.drops) {
+      g.save(); g.translate(d.x, d.y); g.rotate(reduceMotion ? 0 : d.rot); g.fillText(d.ch, 0, 0); g.restore();
+    }
+    // basket
+    const b = state.basket, bs = size();
+    const sx = reduceMotion ? 0 : Math.sin(b.shake * 30) * b.shake * 10;
+    const sy = reduceMotion ? 0 : -Math.sin(b.bounce * Math.PI) * 8;
+    g.font = `${bs}px ${EMOJI_FONT}`;
+    g.fillText('🧺', b.x + sx, gy - bs * 0.32 + sy);
+    // sparkles
+    g.font = `${bs * 0.45}px ${EMOJI_FONT}`;
+    for (const p of state.pops) { g.globalAlpha = 1 - p.t / 0.6; g.fillText(p.ch, p.x, p.y - p.t * 60); }
+    g.globalAlpha = 1;
+  }
+
+  /* ---------- round flow ---------- */
+  function newGame() {
+    stop();
+    $('win').hidden = true; stopConfetti();
+    Object.assign(state, { caught: 0, bugs: 0, drops: [], pops: [], nextDrop: 600 });
+    state.basket.x = state.basket.target = state.W / 2;
+    tray.innerHTML = '';
+    for (let i = 0; i < GOAL; i++) { const s = document.createElement('div'); s.className = 'slot'; tray.append(s); }
+    $('goText').textContent = '開始';
+    $('start').hidden = false; $('hint').hidden = false;
+    syncToolbar(); draw();
+  }
+  function begin() {
+    audio(); say(LEVELS[state.level].bugs ? '接水果！不要接到毛毛蟲喔！' : '接水果！');
+    $('start').hidden = true;
+    setTimeout(() => { $('hint').hidden = true; }, 2500);
+    state.running = true; state.last = performance.now();
+    requestAnimationFrame(tick);
+  }
+  function stop() { state.running = false; }
+  function pause() {
+    if (!state.running) return;
+    stop(); $('goText').textContent = '繼續'; $('start').hidden = false;
+  }
+  function finish() {
+    stop();
+    setTimeout(() => {
+      const stars = state.bugs <= 2 ? 3 : 2; // always encouraging: at least 2 stars
+      $('stars').innerHTML = [0, 1, 2].map(i => i < stars ? '⭐' : '<span class="dim">⭐</span>').join('');
+      $('next').hidden = state.level >= LEVELS.length - 1;
+      $('win').hidden = false;
+      sfx.win(); say('好棒！');
+      startConfetti();
+      $('again').focus();
+    }, 400);
+  }
+  $('go').addEventListener('click', begin);
+  $('again').addEventListener('click', () => { newGame(); begin(); });
+  $('next').addEventListener('click', () => {
+    state.level = Math.min(LEVELS.length - 1, state.level + 1); store.set('level', state.level);
+    newGame(); begin();
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+  /* ---------- toolbar ---------- */
+  LEVELS.forEach((lv, i) => {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.setAttribute('aria-label', lv.label);
+    b.innerHTML = `<span class="dots">${'<i></i>'.repeat(i + 1)}</span><span class="txt">${lv.label}</span>`;
+    b.addEventListener('click', () => { state.level = i; store.set('level', i); newGame(); });
+    $('levels').append(b);
+  });
+  $('sound').addEventListener('click', () => {
+    state.sound = !state.sound; store.set('sound', state.sound);
+    if (!state.sound && 'speechSynthesis' in window) speechSynthesis.cancel();
+    syncToolbar();
+  });
+  $('restart').addEventListener('click', newGame);
+  function syncToolbar() {
+    [...$('levels').children].forEach((b, i) => b.setAttribute('aria-pressed', i === state.level));
+    $('sound').setAttribute('aria-pressed', state.sound);
+    $('sound').querySelector('.emo').textContent = state.sound ? '🔊' : '🔇';
+  }
+
+  /* ---------- confetti ---------- */
+  let confettiRaf = 0, confettiCanvas = null;
+  function startConfetti() {
+    if (reduceMotion) return;
+    stopConfetti();
+    const c = confettiCanvas = document.createElement('canvas');
+    c.className = 'confetti'; document.body.append(c);
+    const dpr = window.devicePixelRatio || 1;
+    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+    const cg = c.getContext('2d'); cg.scale(dpr, dpr);
+    const colors = ['#2b59c3', '#ff6b5b', '#2fb36f', '#ffd34e', '#a463f2'];
+    const bits = Array.from({ length: 140 }, () => ({
+      x: Math.random() * innerWidth, y: -20 - Math.random() * innerHeight * 0.6,
+      vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3,
+      r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.2,
+      w: 8 + Math.random() * 8, h: 5 + Math.random() * 6, color: rand(colors),
+    }));
+    const t0 = performance.now();
+    (function frame(now) {
+      cg.clearRect(0, 0, innerWidth, innerHeight);
+      for (const b of bits) {
+        b.x += b.vx; b.y += b.vy; b.r += b.vr;
+        cg.save(); cg.translate(b.x, b.y); cg.rotate(b.r); cg.fillStyle = b.color;
+        cg.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); cg.restore();
+      }
+      if (now - t0 < 4500) confettiRaf = requestAnimationFrame(frame); else stopConfetti();
+    })(t0);
+  }
+  function stopConfetti() {
+    cancelAnimationFrame(confettiRaf);
+    if (confettiCanvas) { confettiCanvas.remove(); confettiCanvas = null; }
+  }
+
+  newGame();
+})();
+</script>
+</body>
+</html>
