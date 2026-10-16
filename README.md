@@ -1,27 +1,49 @@
-# 翻翻樂記憶卡
+# 小小遊戲屋
 
-給 5 歲左右孩子玩的翻牌記憶配對遊戲，針對平板觸控設計。
+給 5 歲左右孩子在平板上玩的小遊戲合集。每款遊戲放在自己的資料夾，透過 GitHub Pages 發布：
 
-## 怎麼玩
+**https://syuming.github.io/smallgame/**
 
-用瀏覽器開啟 `index.html` 即可，不需要安裝，也不需要連網（字型除外）。
+## 遊戲列表
+
+| 遊戲 | 資料夾 | 網址 |
+|------|--------|------|
+| 翻翻樂記憶卡 | `memory/` | https://syuming.github.io/smallgame/memory/ |
+
+## 目錄結構
+
+```
+smallgame/
+├── index.html            遊戲選單首頁
+├── manifest.webmanifest  首頁的「加入主畫面」設定
+├── icons/                首頁圖示
+└── memory/               翻翻樂記憶卡
+    ├── index.html
+    ├── manifest.webmanifest
+    └── icons/
+```
+
+## 翻翻樂記憶卡
 
 - 點兩張卡片翻開，圖案一樣就配對成功，下方的托盤會收集找到的圖案。
 - 配對成功時會唸出名稱（例如「小狗」），幫助孩子認識事物。
-- 三種主題：動物、水果、交通工具。
-- 三種難度：簡單（3 對）、普通（4 對）、挑戰（6 對）。
+- 三種主題：動物、水果、交通工具；三種難度：簡單（3 對）、普通（4 對）、挑戰（6 對）。
 - 沒有失敗或扣分；全部找到後一定會得到至少 2 顆星。
+- 左上角 🏠 按鈕可回到遊戲選單。
 
-## 放到平板上（GitHub Pages）
+## 新增一款遊戲
 
-1. 將本分支合併到 `main`。
-2. GitHub repository → **Settings → Pages** → Source 選 **Deploy from a branch**，Branch 選 `main`、資料夾選 `/ (root)`，按 Save。
-3. 約 1–2 分鐘後會出現網址：`https://syuming.github.io/smallgame/`。
-4. 在平板上用該網址開啟，然後：
-   - **iPad（Safari）**：分享按鈕 →「加入主畫面」
-   - **Android（Chrome）**：右上角選單 →「加到主畫面」／「安裝應用程式」
-5. 從主畫面的「翻翻樂」圖示開啟時，會以全螢幕方式執行，沒有網址列。
+1. 建立新資料夾（例如 `whack/`），放入該遊戲的 `index.html`。
+2. 遊戲工具列放一個連到 `../` 的 🏠 按鈕，讓全螢幕模式下也能回到選單。
+3. `localStorage` 的 key 使用遊戲專屬前綴（翻翻樂使用 `flipflip.`），避免與其他遊戲衝突。
+4. 在根目錄 `index.html` 的遊戲選單加一張卡片，並更新上方的遊戲列表。
+5. 合併到 `main` 後，GitHub Pages 會自動部署。
 
-> 注意：免費帳號的 GitHub Pages 只支援 **public** repository；private repository 需要 GitHub Pro 以上方案。
+## 放到平板上
 
-主題、難度與音效設定會記在瀏覽器中。
+在平板上開啟網址後加入主畫面，從圖示開啟時會以全螢幕執行：
+
+- **iPad（Safari）**：分享按鈕 →「加入主畫面」
+- **Android（Chrome）**：右上角選單 →「加到主畫面」／「安裝應用程式」
+
+可以只加入遊戲選單首頁，也可以把單一遊戲的網址各自加成一個圖示。
