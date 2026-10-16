@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>拼拼樂</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="拼拼樂">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#ffd34e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans+TC:wght@700;900&display=swap">
+<style>
+  /* Layout: same sunny play mat; toolbar, then the puzzle board and a tray of loose pieces side by side (stacked on tall screens). */
+  :root {
+    --sun: #ffd34e;
+    --sun-deep: #f5b82e;
+    --cobalt: #2b59c3;
+    --cobalt-deep: #1c3f94;
+    --paper: #ffffff;
+    --ink: #1e2a4a;
+    --leaf: #2fb36f;
+    --coral: #ff6b5b;
+    --font-display: "Baloo 2", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background-color: var(--sun);
+    background-image: radial-gradient(var(--sun-deep) 2px, transparent 2.5px);
+    background-size: 28px 28px;
+    color: var(--ink);
+    font-family: var(--font-body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  button { font: inherit; color: inherit; touch-action: manipulation; }
+  a.chip { color: inherit; text-decoration: none; }
+  button:focus-visible, a:focus-visible { outline: 4px solid var(--cobalt); outline-offset: 3px; }
+
+  .app { height: 100%; display: flex; flex-direction: column; gap: 12px; padding-block: 12px; }
+
+  /* ---------- toolbar (shared look) ---------- */
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .brand {
+    font-family: var(--font-display); font-weight: 900; font-size: clamp(1.6rem, 4vw, 2.3rem);
+    line-height: 1; margin: 0 auto 0 0; color: var(--cobalt-deep); letter-spacing: 0.04em;
+    text-shadow: 3px 3px 0 var(--paper);
+  }
+  .group { display: flex; gap: 8px; }
+  .chip {
+    min-width: 60px; height: 60px; padding: 0 12px; border: 0; border-radius: 18px;
+    background: var(--paper); box-shadow: 0 5px 0 var(--sun-deep); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: transform .12s, box-shadow .12s;
+  }
+  .chip:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--sun-deep); }
+  .chip[aria-pressed="true"] { background: var(--cobalt); color: var(--paper); box-shadow: 0 5px 0 var(--cobalt-deep); }
+  .chip .emo { font-family: var(--emoji); font-size: 2rem; line-height: 1; }
+  .chip .txt { font-weight: 700; font-size: 1rem; }
+  .grid4 { display: inline-grid; grid-template-columns: repeat(var(--c), 7px); gap: 2px; }
+  .grid4 i { width: 7px; height: 7px; border-radius: 2px; background: currentColor; }
+
+  /* ---------- play area ---------- */
+  .play { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: var(--gap, 20px); }
+  .play.tall { flex-direction: column; }
+  .board {
+    position: relative; width: var(--B); height: var(--B); flex: none;
+    display: grid; grid-template-columns: repeat(var(--cols), 1fr); grid-template-rows: repeat(var(--rows), 1fr);
+    border-radius: 18px; background: var(--paper); box-shadow: 0 7px 0 var(--sun-deep); overflow: hidden;
+  }
+  .board::before {   /* faint picture as a hint */
+    content: ""; position: absolute; inset: 0; background: var(--pic) center / cover; opacity: .22; pointer-events: none;
+  }
+  .slot { position: relative; border: 2px dashed rgba(30,42,74,.22); }
+  .slot.ready { background: rgba(43,89,195,.08); }
+  .slot.hover { background: rgba(47,179,111,.22); }
+  .board.done .slot { border-color: transparent; }
+  .board.done { animation: glow 1s ease; }
+  @keyframes glow { 0% { box-shadow: 0 7px 0 var(--sun-deep), 0 0 0 0 rgba(255,255,255,.9); } 100% { box-shadow: 0 7px 0 var(--sun-deep), 0 0 0 24px rgba(255,255,255,0); } }
+
+  .tray {
+    flex: none; width: var(--TW); height: var(--TH);
+    display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: var(--tgap, 12px);
+  }
+  .piece {
+    width: var(--pw); height: var(--ph); padding: 0; border: 0; cursor: grab; flex: none;
+    background-image: var(--pic); background-size: var(--B) var(--B);
+    background-position: calc(var(--c) * var(--pw) * -1) calc(var(--r) * var(--ph) * -1);
+    border-radius: 10px; box-shadow: 0 5px 0 var(--sun-deep), 0 0 0 3px var(--paper);
+    touch-action: none; rotate: var(--tilt, 0deg);
+    transition: translate .3s cubic-bezier(.3,1.4,.5,1), scale .15s, rotate .15s;
+  }
+  .piece.selected { outline: 6px solid var(--cobalt); outline-offset: 2px; scale: 1.06; rotate: 0deg; }
+  .piece.dragging { transition: none; z-index: 10; scale: 1.08; rotate: 0deg; cursor: grabbing; box-shadow: 0 14px 24px rgba(30,42,74,.35), 0 0 0 3px var(--paper); position: relative; }
+  .piece.nope { animation: wiggle .4s ease; }
+  .slot .piece { width: 100%; height: 100%; border-radius: 0; box-shadow: none; rotate: 0deg; translate: 0 0; cursor: default; animation: pop .35s ease; }
+  @keyframes wiggle { 0%,100% { rotate: 0deg; } 25% { rotate: -10deg; } 75% { rotate: 10deg; } }
+  @keyframes pop { 0% { scale: .7; } 70% { scale: 1.06; } 100% { scale: 1; } }
+
+  /* ---------- win panel ---------- */
+  .win {
+    position: fixed; inset: 0; display: grid; place-items: center; z-index: 20;
+    background: rgba(30, 42, 74, .45);
+    padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  }
+  .panel {
+    background: var(--paper); border-radius: 32px; padding: 24px 28px; text-align: center;
+    box-shadow: 0 10px 0 var(--cobalt-deep); max-width: 420px; width: 100%; animation: pop .5s ease;
+  }
+  .panel .pic { width: 160px; height: 160px; margin: 0 auto; border-radius: 20px; background: var(--pic) center / cover; box-shadow: 0 0 0 5px var(--sun); }
+  .panel h2 { font-family: var(--font-display); font-weight: 900; font-size: 2.1rem; margin: 12px 0 4px; color: var(--cobalt-deep); text-wrap: balance; }
+  .stars { font-family: var(--emoji); font-size: 2.6rem; letter-spacing: 6px; margin: 4px 0 18px; }
+  .stars .dim { filter: grayscale(1); opacity: .3; }
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    height: 64px; padding: 0 26px; border: 0; border-radius: 20px; cursor: pointer;
+    font-weight: 900; font-size: 1.3rem; background: var(--cobalt); color: var(--paper);
+    box-shadow: 0 6px 0 var(--cobalt-deep);
+  }
+  .btn.alt { background: var(--coral); box-shadow: 0 6px 0 #d4483a; }
+  .btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--cobalt-deep); }
+  canvas.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 21; }
+
+  @media (max-width: 560px) {
+    .chip { min-width: 52px; height: 52px; }
+    .chip .txt { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .piece { transition: none; }
+    .piece.nope, .slot .piece, .board.done, .panel { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <a class="chip" href="../" aria-label="回遊戲選單"><span class="emo">🏠</span></a>
+    <h1 class="brand">拼拼樂</h1>
+    <div class="group" id="levels" role="group" aria-label="選擇片數"></div>
+    <div class="group">
+      <button class="chip" id="sound" aria-pressed="true" aria-label="聲音開關"><span class="emo">🔊</span></button>
+      <button class="chip" id="restart" aria-label="換一張圖"><span class="emo">🔄</span></button>
+    </div>
+  </header>
+  <main class="play" id="play">
+    <div class="board" id="board" aria-label="拼圖板"></div>
+    <div class="tray" id="tray" aria-label="拼圖片"></div>
+  </main>
+</div>
+
+<div class="win" id="win" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="pic" id="winPic"></div>
+    <h2 id="winTitle">拼好了！</h2>
+    <div class="stars" id="stars"></div>
+    <div class="actions">
+      <button class="btn" id="again">換一張圖</button>
+      <button class="btn alt" id="next">多一點片 ➜</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const LEVELS = [ { cols: 2, rows: 2, label: '4 片' }, { cols: 3, rows: 2, label: '6 片' }, { cols: 3, rows: 3, label: '9 片' } ];
+  const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+  /* ---------- pictures, drawn on a canvas so no image files are needed ---------- */
+  function seeded(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+  function emoji(g, ch, x, y, size) { g.font = `${size}px ${EMOJI_FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, x, y); }
+  function sky(g, S, top, bottom) { const gr = g.createLinearGradient(0, 0, 0, S); gr.addColorStop(0, top); gr.addColorStop(1, bottom); g.fillStyle = gr; g.fillRect(0, 0, S, S); }
+  function ground(g, S, y, color) { g.fillStyle = color; g.beginPath(); g.moveTo(0, y); g.quadraticCurveTo(S / 2, y - S * 0.08, S, y); g.lineTo(S, S); g.lineTo(0, S); g.fill(); }
+  const PICTURES = [
+    { name: '獅子', draw(g, S) { sky(g, S, '#ffe08a', '#ffb35c'); emoji(g, '☀️', S * .8, S * .18, S * .16); ground(g, S, S * .72, '#e3a64a'); emoji(g, '🌳', S * .14, S * .6, S * .22); emoji(g, '🦁', S * .55, S * .55, S * .5); } },
+    { name: '火箭', draw(g, S) { sky(g, S, '#14204a', '#2d3f8a'); const r = seeded(7); g.fillStyle = '#ffffff'; for (let i = 0; i < 70; i++) { g.globalAlpha = .4 + r() * .6; g.beginPath(); g.arc(r() * S, r() * S, 1 + r() * 2.5, 0, 7); g.fill(); } g.globalAlpha = 1; emoji(g, '🌙', S * .18, S * .2, S * .16); emoji(g, '🪐', S * .8, S * .78, S * .2); emoji(g, '🚀', S * .5, S * .5, S * .48); } },
+    { name: '鯨魚', draw(g, S) { sky(g, S, '#7fd3f7', '#1f6fb8'); const r = seeded(3); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 3; for (let i = 0; i < 14; i++) { g.beginPath(); g.arc(r() * S, r() * S, 5 + r() * 12, 0, 7); g.stroke(); } ground(g, S, S * .88, '#f2d58a'); emoji(g, '🐠', S * .18, S * .22, S * .14); emoji(g, '🐙', S * .82, S * .8, S * .16); emoji(g, '🐳', S * .5, S * .5, S * .5); } },
+    { name: '恐龍', draw(g, S) { sky(g, S, '#bdf0ff', '#e9fbd2'); emoji(g, '🌋', S * .78, S * .3, S * .26); ground(g, S, S * .74, '#5cbf5a'); emoji(g, '🌴', S * .14, S * .58, S * .26); emoji(g, '🦖', S * .52, S * .58, S * .48); } },
+    { name: '彩虹獨角獸', draw(g, S) { sky(g, S, '#ffe3f4', '#d9ecff'); const cols = ['#ff5a5a', '#ffa23a', '#ffd84a', '#5cc96a', '#4aa3ff', '#9a6bff']; g.lineWidth = S * .035; cols.forEach((c, i) => { g.strokeStyle = c; g.beginPath(); g.arc(S / 2, S * .78, S * (.46 - i * .035), Math.PI, 0); g.stroke(); }); emoji(g, '☁️', S * .14, S * .72, S * .2); emoji(g, '☁️', S * .86, S * .72, S * .2); emoji(g, '🦄', S * .5, S * .56, S * .42); } },
+    { name: '消防車', draw(g, S) { sky(g, S, '#cfeeff', '#f4fbff'); emoji(g, '🏢', S * .2, S * .38, S * .3); emoji(g, '🏠', S * .8, S * .44, S * .24); g.fillStyle = '#555c6b'; g.fillRect(0, S * .7, S, S * .3); g.fillStyle = '#ffffff'; for (let x = S * .05; x < S; x += S * .2) g.fillRect(x, S * .84, S * .1, S * .025); emoji(g, '🚒', S * .5, S * .64, S * .46); } },
+  ];
+  function render(pic) {
+    const S = 720, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d'); pic.draw(g, S);
+    return c.toDataURL('image/png');
+  }
+
+  const $ = id => document.getElementById(id);
+  const play = $('play'), board = $('board'), tray = $('tray');
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('puzzle.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('puzzle.' + k, JSON.stringify(v)); } catch {} },
+  };
+  const state = {
+    level: Math.min(LEVELS.length - 1, Math.max(0, store.get('level', 0) | 0)),
+    sound: store.get('sound', true) !== false,
+    pic: null, picIndex: -1, pieces: [], slots: [], selected: null, left: 0, wrong: 0,
+  };
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- sound ---------- */
+  let ctx = null;
+  function audio() {
+    if (!state.sound) return null;
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    } catch { return null; }
+  }
+  function tone(freq, start, dur, type = 'sine', vol = 0.18) {
+    const a = audio(); if (!a) return;
+    const t = a.currentTime + start, o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+  }
+  const sfx = {
+    pick: () => tone(660, 0, 0.1, 'triangle', 0.1),
+    snap: () => { tone(784, 0, 0.12, 'triangle', 0.15); tone(1047, 0.08, 0.2, 'triangle', 0.12); },
+    miss: () => { tone(330, 0, 0.18, 'sine', 0.1); tone(294, 0.12, 0.22, 'sine', 0.1); },
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.35, 'triangle', 0.15)),
+  };
+  function say(text) {
+    if (!state.sound || !('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-TW'; u.rate = 0.9; u.pitch = 1.2;
+      const v = speechSynthesis.getVoices().find(v => /zh[-_]TW/i.test(v.lang));
+      if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch {}
+  }
+
+  /* ---------- build a round ---------- */
+  function newGame() {
+    $('win').hidden = true; stopConfetti();
+    let i; do { i = Math.floor(Math.random() * PICTURES.length); } while (i === state.picIndex && PICTURES.length > 1);
+    state.picIndex = i; state.pic = PICTURES[i];
+    const url = `url(${render(state.pic)})`;
+    document.documentElement.style.setProperty('--pic', url);
+
+    const { cols, rows } = LEVELS[state.level];
+    play.style.setProperty('--cols', cols); play.style.setProperty('--rows', rows);
+    Object.assign(state, { selected: null, left: cols * rows, wrong: 0 });
+
+    board.classList.remove('done');
+    board.innerHTML = ''; tray.innerHTML = '';
+    state.slots = []; state.pieces = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const s = document.createElement('div'); s.className = 'slot';
+      const slot = { el: s, index: r * cols + c, filled: false };
+      s.addEventListener('click', () => onSlotTap(slot));
+      board.append(s); state.slots.push(slot);
+    }
+    const order = [...state.slots.keys()];
+    for (let k = order.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [order[k], order[j]] = [order[j], order[k]]; }
+    // Never hand out the pieces already in solved order.
+    if (order.every((v, k) => v === k)) order.push(order.shift());
+    for (const idx of order) {
+      const el = document.createElement('button');
+      el.className = 'piece'; el.setAttribute('aria-label', `拼圖片 ${idx + 1}`);
+      el.style.setProperty('--c', idx % cols); el.style.setProperty('--r', Math.floor(idx / cols));
+      el.style.setProperty('--tilt', (Math.random() * 10 - 5).toFixed(1) + 'deg');
+      const piece = { el, index: idx, done: false };
+      bindDrag(piece);
+      tray.append(el); state.pieces.push(piece);
+    }
+    syncToolbar();
+    layout();
+  }
+
+  /* ---------- drag, or tap piece then tap slot ---------- */
+  let drag = null;
+  function bindDrag(piece) {
+    const el = piece.el;
+    el.addEventListener('pointerdown', e => {
+      if (piece.done || drag) return;
+      e.preventDefault(); audio();
+      drag = { piece, id: e.pointerId, x0: e.clientX, y0: e.clientY, moved: false, over: null };
+      try { el.setPointerCapture(e.pointerId); } catch {}
+    });
+    el.addEventListener('pointermove', e => {
+      if (!drag || drag.piece !== piece || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+      if (!drag.moved && Math.hypot(dx, dy) > 10) { drag.moved = true; select(null); el.classList.add('dragging'); sfx.pick(); }
+      if (!drag.moved) return;
+      el.style.translate = `${dx}px ${dy}px`;
+      const over = slotAt(e.clientX, e.clientY);
+      if (over !== drag.over) { drag.over?.el.classList.remove('hover'); over?.el.classList.add('hover'); drag.over = over; }
+    });
+    const end = e => {
+      if (!drag || drag.piece !== piece || e.pointerId !== drag.id) return;
+      const d = drag; drag = null;
+      d.over?.el.classList.remove('hover');
+      if (!d.moved) { if (e.type === 'pointerup') { select(state.selected === piece ? null : piece); if (state.selected) sfx.pick(); } return; }
+      el.classList.remove('dragging');
+      place(piece, e.type === 'pointerup' ? slotAt(e.clientX, e.clientY) : null);
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(state.selected === piece ? null : piece); } });
+  }
+  function slotAt(x, y) {
+    return state.slots.find(s => {
+      if (s.filled) return false;
+      const r = s.el.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    }) || null;
+  }
+  function select(piece) {
+    state.selected?.el.classList.remove('selected');
+    state.selected = piece;
+    piece?.el.classList.add('selected');
+    state.slots.forEach(s => s.el.classList.toggle('ready', !!piece && !s.filled));
+  }
+  function onSlotTap(slot) {
+    if (!state.selected || slot.filled) return;
+    const p = state.selected; select(null); place(p, slot);
+  }
+  function place(piece, slot) {
+    const el = piece.el;
+    if (slot && slot.index === piece.index) {
+      piece.done = true; slot.filled = true;
+      el.style.translate = ''; el.classList.remove('selected');
+      el.setAttribute('tabindex', '-1');
+      slot.el.append(el);
+      sfx.snap();
+      if (--state.left === 0) finish();
+      return;
+    }
+    el.style.translate = '';
+    if (slot) { state.wrong++; sfx.miss(); el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope'); setTimeout(() => el.classList.remove('nope'), 450); }
+  }
+  function finish() {
+    board.classList.add('done');
+    setTimeout(() => say(`拼好了！是${state.pic.name}！`), 300);
+    setTimeout(() => {
+      const stars = state.wrong <= 2 ? 3 : 2; // always encouraging: at least 2 stars
+      $('stars').innerHTML = [0, 1, 2].map(i => i < stars ? '⭐' : '<span class="dim">⭐</span>').join('');
+      $('winTitle').textContent = `拼好了！是${state.pic.name}！`;
+      $('next').hidden = state.level >= LEVELS.length - 1;
+      $('win').hidden = false;
+      sfx.win(); startConfetti();
+      $('again').focus();
+    }, 1300);
+  }
+  $('again').addEventListener('click', newGame);
+  $('next').addEventListener('click', () => {
+    state.level = Math.min(LEVELS.length - 1, state.level + 1); store.set('level', state.level); newGame();
+  });
+
+  /* ---------- toolbar ---------- */
+  LEVELS.forEach((lv, i) => {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.setAttribute('aria-label', lv.label);
+    b.innerHTML = `<span class="grid4" style="--c:${lv.cols}">${'<i></i>'.repeat(lv.cols * lv.rows)}</span><span class="txt">${lv.label}</span>`;
+    b.addEventListener('click', () => { state.level = i; store.set('level', i); newGame(); });
+    $('levels').append(b);
+  });
+  $('sound').addEventListener('click', () => {
+    state.sound = !state.sound; store.set('sound', state.sound);
+    if (!state.sound && 'speechSynthesis' in window) speechSynthesis.cancel();
+    syncToolbar();
+  });
+  $('restart').addEventListener('click', newGame);
+  function syncToolbar() {
+    [...$('levels').children].forEach((b, i) => b.setAttribute('aria-pressed', i === state.level));
+    $('sound').setAttribute('aria-pressed', state.sound);
+    $('sound').querySelector('.emo').textContent = state.sound ? '🔊' : '🔇';
+  }
+
+  /* ---------- sizing: biggest board that still leaves room for every loose piece ---------- */
+  function fits(B, W, H, tall, gap) {
+    const { cols, rows } = LEVELS[state.level];
+    const pw = B / cols, ph = B / rows, tg = Math.max(8, Math.round(pw * 0.1)), n = cols * rows;
+    const TW = tall ? W : W - B - gap, TH = tall ? H - B - gap : H;
+    if (TW < pw || TH < ph) return null;
+    const perRow = Math.floor((TW + tg) / (pw + tg));
+    if (perRow < 1 || Math.ceil(n / perRow) * (ph + tg) - tg > TH) return null;
+    return { B, pw, ph, tg, TW, TH };
+  }
+  function layout() {
+    const W = play.clientWidth, H = play.clientHeight;
+    const gap = Math.max(12, Math.round(Math.min(W, H) * 0.03));
+    let best = null;
+    for (const tall of [false, true]) {
+      for (let B = Math.floor(Math.min(W, H)); B >= 120; B -= 4) {
+        const f = fits(B, W, H, tall, gap);
+        if (f) { if (!best || f.B > best.B) best = { ...f, tall }; break; }
+      }
+    }
+    if (!best) best = { B: 120, pw: 60, ph: 60, tg: 8, TW: W, TH: 200, tall: true };
+    play.classList.toggle('tall', best.tall);
+    const set = (k, v) => play.style.setProperty(k, v);
+    set('--gap', gap + 'px'); set('--B', best.B + 'px'); set('--pw', best.pw + 'px'); set('--ph', best.ph + 'px');
+    set('--tgap', best.tg + 'px'); set('--TW', Math.floor(best.TW) + 'px'); set('--TH', Math.floor(best.TH) + 'px');
+  }
+  new ResizeObserver(layout).observe(play);
+
+  /* ---------- confetti ---------- */
+  let confettiRaf = 0, confettiCanvas = null;
+  function startConfetti() {
+    if (reduceMotion) return;
+    stopConfetti();
+    const c = confettiCanvas = document.createElement('canvas');
+    c.className = 'confetti'; document.body.append(c);
+    const dpr = window.devicePixelRatio || 1;
+    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+    const g = c.getContext('2d'); g.scale(dpr, dpr);
+    const colors = ['#2b59c3', '#ff6b5b', '#2fb36f', '#ffd34e', '#a463f2'];
+    const bits = Array.from({ length: 140 }, () => ({
+      x: Math.random() * innerWidth, y: -20 - Math.random() * innerHeight * 0.6,
+      vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3,
+      r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.2,
+      w: 8 + Math.random() * 8, h: 5 + Math.random() * 6, color: colors[Math.floor(Math.random() * colors.length)],
+    }));
+    const t0 = performance.now();
+    (function frame(now) {
+      g.clearRect(0, 0, innerWidth, innerHeight);
+      for (const b of bits) {
+        b.x += b.vx; b.y += b.vy; b.r += b.vr;
+        g.save(); g.translate(b.x, b.y); g.rotate(b.r); g.fillStyle = b.color;
+        g.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); g.restore();
+      }
+      if (now - t0 < 4500) confettiRaf = requestAnimationFrame(frame); else stopConfetti();
+    })(t0);
+  }
+  function stopConfetti() {
+    cancelAnimationFrame(confettiRaf);
+    if (confettiCanvas) { confettiCanvas.remove(); confettiCanvas = null; }
+  }
+
+  newGame();
+})();
+</script>
+</body>
+</html>
