@@ -61,7 +61,7 @@
     line-height: 1; margin: 0 auto 0 0; color: var(--cobalt-deep); letter-spacing: 0.04em;
     text-shadow: 3px 3px 0 var(--paper);
   }
-  .group { display: flex; gap: 8px; }
+  .group { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip {
     min-width: 60px; height: 60px; padding: 0 12px; border: 0; border-radius: 18px;
     background: var(--paper); box-shadow: 0 5px 0 var(--sun-deep); cursor: pointer;
@@ -129,9 +129,10 @@
   @keyframes pop { 0% { scale: .4; } 70% { scale: 1.1; } 100% { scale: 1; } }
   canvas.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
 
+  @media (max-width: 1180px) { .chip .txt { display: none; } }
   @media (max-width: 560px) {
-    .chip { min-width: 52px; height: 52px; }
-    .chip .txt { display: none; }
+    .chip { min-width: 46px; height: 46px; padding: 0 8px; border-radius: 14px; }
+    .chip .emo { font-size: 1.6rem; }
   }
   @media (prefers-reduced-motion: reduce) {
     .panel, .start button, .toast { animation: none; }
@@ -150,7 +151,7 @@
       <button class="chip" id="restart" aria-label="重新開始"><span class="emo">🔄</span></button>
     </div>
   </header>
-  <main class="stage" id="stage" aria-label="地圖，手指拖著洞洞移動">
+  <main class="stage" id="stage" aria-label="地圖，手指拖著洞洞移動；小地圖在右上角">
     <canvas id="cv"></canvas>
     <div class="start" id="start"><button id="go" aria-label="開始"><span class="play">▶</span><span id="goText">開始</span></button></div>
   </main>
@@ -174,9 +175,10 @@
 
 <script>
 (() => {
-  // Five size tiers per map, smallest first. Sizes are fractions of the map's shorter side.
+  /* All positions and sizes are in map units: 1 unit = the screen's shorter side at normal zoom.
+     The world is twice the screen in each direction; the camera follows the hole and zooms out as it grows. */
   const TIER_SIZE  = [0.05, 0.075, 0.11, 0.16, 0.22];
-  const TIER_COUNT = [12, 9, 6, 4, 2];
+  const TIER_COUNT = [30, 22, 13, 8, 4];
   const MAPS = {
     park: { label: '公園', icon: '🌳', tiers: [
       [['🌸','花'],['🍎','蘋果'],['🍄','香菇'],['🌼','小花'],['🍓','草莓'],['🦋','蝴蝶']],
@@ -196,9 +198,29 @@
       [['🐷','小豬'],['🐐','山羊'],['🌳','大樹']],
       [['🐄','乳牛'],['🚜','拖拉機'],['🐎','馬']],
       [['🏡','農舍'],['🏘️','村莊']] ] },
+    beach: { label: '海邊', icon: '🏖️', tiers: [
+      [['🐚','貝殼'],['🦀','螃蟹'],['🍦','冰淇淋'],['🦐','蝦子'],['🐠','小魚'],['🍹','果汁']],
+      [['🐢','海龜'],['🏐','排球'],['⛱️','陽傘'],['🐙','章魚']],
+      [['🛶','獨木舟'],['🐬','海豚'],['🦈','鯊魚']],
+      [['⛵','帆船'],['🐋','鯨魚'],['🚤','快艇']],
+      [['🛳️','郵輪'],['🏝️','小島']] ] },
+    space: { label: '太空', icon: '🚀', tiers: [
+      [['⭐','星星'],['🌟','亮星星'],['🌙','月亮'],['👽','外星人'],['✨','星光']],
+      [['🛰️','衛星'],['👾','小怪獸'],['🛸','飛碟'],['🔭','望遠鏡']],
+      [['🚀','火箭'],['🌕','月球'],['☄️','彗星']],
+      [['🪐','土星'],['🌎','地球'],['🌍','地球']],
+      [['🌞','太陽'],['🌌','銀河']] ] },
+    dino: { label: '恐龍', icon: '🦖', tiers: [
+      [['🥚','恐龍蛋'],['🍃','葉子'],['🦴','骨頭'],['🍄','香菇'],['🐞','瓢蟲'],['🐌','蝸牛']],
+      [['🦎','蜥蜴'],['🐢','烏龜'],['🌵','仙人掌'],['🐍','蛇']],
+      [['🐊','鱷魚'],['🌴','椰子樹'],['🌳','大樹']],
+      [['🦕','雷龍'],['🦖','暴龍'],['🦕','長脖子恐龍']],
+      [['🌋','火山'],['⛰️','大山']] ] },
   };
   const MAP_KEYS = Object.keys(MAPS);
-  const R0 = 0.045, GROW = 0.5, EAT = 0.8, RMAX = 0.25, SPEED = 1.5; // hole radius & speed in map units
+  const WORLD = 2;                       // world = 2× the screen in each direction
+  const R0 = 0.045, GROW = 0.4, EAT = 0.8, RMAX = 0.3, SPEED = 1.5;
+  const HOLE_ON_SCREEN = 0.17;           // zoom out so the hole never covers more than this
   const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 
   const $ = id => document.getElementById(id);
@@ -210,11 +232,15 @@
   const state = {
     map: MAPS[store.get('map', 'park')] ? store.get('map', 'park') : 'park',
     sound: store.get('sound', true) !== false,
-    running: false, items: [], eaten: 0, total: 0, canEat: 0, elapsed: 0, last: 0, bumpCooldown: 0,
-    hole: { x: 0.5, y: 0.5, r: R0, tx: 0.5, ty: 0.5, gulp: 0 },
-    W: 0, H: 0, m: 0, ground: null,
+    running: false, items: [], deco: null, eaten: 0, total: 0, canEat: 0, elapsed: 0, last: 0, bumpCooldown: 0,
+    world: { w: 2.6, h: 2 },
+    hole: { x: 1.3, y: 1, r: R0, tx: 1.3, ty: 1, gulp: 0 },
+    cam: { x: 1.3, y: 1, zoom: 1 },
+    pointer: { down: false, sx: 0, sy: 0 },
+    W: 0, H: 0, m: 0, dpr: 1,
   };
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const rand = arr => arr[Math.floor(Math.random() * arr.length)];
 
   /* ---------- sound ---------- */
   let ctx = null;
@@ -259,82 +285,99 @@
     stage.append(t); setTimeout(() => t.remove(), 2300);
   }
 
-  /* ---------- map generation ---------- */
+  /* ---------- world generation ---------- */
   function seeded(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
-  function buildItems() {
+  function buildWorld() {
+    const { W, H } = state, m = Math.min(W, H) || 1;
+    const ww = WORLD * (W || 1.3) / m, wh = WORLD * (H || 1) / m;
+    state.world = { w: ww, h: wh };
     const tiers = MAPS[state.map].tiers, items = [];
-    const W = state.W || 1000, H = state.H || 700, m = Math.min(W, H);
-    // Place the biggest things first, keep them apart, and keep the middle clear for the hole.
+    // Biggest things first, kept apart, with the starting spot in the middle left clear.
     for (let t = tiers.length - 1; t >= 0; t--) {
       for (let k = 0; k < TIER_COUNT[t]; k++) {
         const [e, name] = tiers[t][k % tiers[t].length];
-        const r = TIER_SIZE[t] * m / 2;
-        for (let tries = 0; tries < 300; tries++) {
-          const x = r + Math.random() * (W - 2 * r), y = r * 1.2 + Math.random() * (H - 2.4 * r);
-          if (Math.hypot(x - W / 2, y - H / 2) < r + m * 0.12) continue;
-          if (items.some(o => Math.hypot(o.x * W - x, o.y * H - y) < (o.s * m / 2 + r) * 1.05)) continue;
-          items.push({ e, name, tier: t, x: x / W, y: y / H, s: TIER_SIZE[t], st: 'idle', t: 0, wob: 0 });
+        const r = TIER_SIZE[t] / 2;
+        for (let tries = 0; tries < 400; tries++) {
+          const x = r + Math.random() * (ww - 2 * r), y = r * 1.2 + Math.random() * (wh - 2.4 * r);
+          if (Math.hypot(x - ww / 2, y - wh / 2) < r + 0.14) continue;
+          if (items.some(o => Math.hypot(o.x - x, o.y - y) < (o.s / 2 + r) * 1.05)) continue;
+          items.push({ e, name, tier: t, x, y, s: TIER_SIZE[t], st: 'idle', t: 0, wob: 0 });
           break;
         }
       }
     }
-    return items;
+    state.items = items;
+    state.deco = buildDeco(ww, wh);
   }
-  function buildGround() {
-    const { W, H, m } = state; if (!W) return;
-    const c = document.createElement('canvas'), dpr = window.devicePixelRatio || 1;
-    c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
-    const q = c.getContext('2d'); q.scale(dpr, dpr);
-    const r = seeded(11);
-    if (state.map === 'park') {
-      q.fillStyle = '#7ccf6a'; q.fillRect(0, 0, W, H);
-      q.fillStyle = '#6cbf5c'; for (let i = 0; i < 260; i++) { q.beginPath(); q.arc(r() * W, r() * H, 2 + r() * 3, 0, 7); q.fill(); }
-      q.strokeStyle = '#f1dca7'; q.lineWidth = m * 0.07; q.lineCap = 'round';
-      q.beginPath(); q.moveTo(-20, H * 0.75); q.bezierCurveTo(W * 0.3, H * 0.45, W * 0.6, H * 1.0, W + 20, H * 0.3); q.stroke();
-      q.fillStyle = '#8fd3f5'; q.beginPath(); q.ellipse(W * 0.82, H * 0.82, m * 0.12, m * 0.07, 0, 0, 7); q.fill();
-    } else if (state.map === 'city') {
-      q.fillStyle = '#b9c0c8'; q.fillRect(0, 0, W, H);
-      const road = m * 0.09;
-      q.fillStyle = '#5d6672';
-      for (const y of [H * 0.33, H * 0.72]) q.fillRect(0, y - road / 2, W, road);
-      for (const x of [W * 0.3, W * 0.7]) q.fillRect(x - road / 2, 0, road, H);
-      q.strokeStyle = '#ffffff'; q.lineWidth = 3; q.setLineDash([m * 0.03, m * 0.03]);
-      for (const y of [H * 0.33, H * 0.72]) { q.beginPath(); q.moveTo(0, y); q.lineTo(W, y); q.stroke(); }
-      for (const x of [W * 0.3, W * 0.7]) { q.beginPath(); q.moveTo(x, 0); q.lineTo(x, H); q.stroke(); }
-      q.setLineDash([]);
-    } else {
-      q.fillStyle = '#9bd47a'; q.fillRect(0, 0, W, H);
-      q.fillStyle = '#c9925a';
-      for (let i = 0; i < 6; i++) q.fillRect(W * 0.05, H * (0.08 + i * 0.07), W * 0.38, H * 0.035);
-      q.fillStyle = '#e8cf7a'; q.fillRect(W * 0.55, H * 0.55, W * 0.4, H * 0.38);
-      q.strokeStyle = '#8a5a33'; q.lineWidth = 5;
-      q.strokeRect(W * 0.55, H * 0.55, W * 0.4, H * 0.38);
+
+  // Ground decoration for each place, in map units, generated once per round.
+  function buildDeco(ww, wh) {
+    const r = seeded(MAP_KEYS.indexOf(state.map) * 97 + 13), dots = n => Array.from({ length: n }, () => [r() * ww, r() * wh, 0.004 + r() * 0.006]);
+    switch (state.map) {
+      case 'park': return { bg: '#7ccf6a', edge: '#5aa84c', dots: dots(380), dot: '#6cbf5c',
+        paths: [[[-0.1, wh * 0.7], [ww * 0.3, wh * 0.35], [ww * 0.65, wh * 1.0], [ww + 0.1, wh * 0.3]], [[ww * 0.2, -0.1], [ww * 0.1, wh * 0.4], [ww * 0.5, wh * 0.6], [ww * 0.45, wh + 0.1]]],
+        path: '#f1dca7', ponds: [[ww * 0.82, wh * 0.82, 0.16, 0.09], [ww * 0.15, wh * 0.2, 0.12, 0.07]], pond: '#8fd3f5' };
+      case 'city': return { bg: '#b9c0c8', edge: '#8d959e', roads: { xs: [ww * 0.2, ww * 0.5, ww * 0.8], ys: [wh * 0.25, wh * 0.55, wh * 0.85], w: 0.09 } };
+      case 'farm': return { bg: '#9bd47a', edge: '#78b058', dots: dots(200), dot: '#8cc56a',
+        fields: [[ww * 0.05, wh * 0.06, ww * 0.3, wh * 0.3], [ww * 0.6, wh * 0.62, ww * 0.32, wh * 0.3]], yards: [[ww * 0.62, wh * 0.08, ww * 0.3, wh * 0.28], [ww * 0.06, wh * 0.62, ww * 0.3, wh * 0.3]] };
+      case 'beach': return { bg: '#f3dc9c', edge: '#d9bd72', dots: dots(300), dot: '#e6c97e', sea: wh * 0.32 };
+      case 'space': return { bg: '#1a2350', edge: '#0d1230', stars: Array.from({ length: 420 }, () => [r() * ww, r() * wh, 0.002 + r() * 0.006, 0.4 + r() * 0.6]),
+        nebulas: [[ww * 0.25, wh * 0.3, 0.4, '#7a4cc9'], [ww * 0.75, wh * 0.7, 0.45, '#2f7fe0'], [ww * 0.7, wh * 0.2, 0.3, '#d94c9a']] };
+      default: return { bg: '#8cc56a', edge: '#6a9f4c', dots: dots(320), dot: '#7ab35a',
+        mud: [[ww * 0.3, wh * 0.7, 0.22, 0.12], [ww * 0.7, wh * 0.35, 0.2, 0.1]], lava: [[ww * 0.85, wh * 0.85, 0.12, 0.07], [ww * 0.12, wh * 0.15, 0.1, 0.06]] };
     }
-    state.ground = c;
+  }
+
+  /* ---------- camera ---------- */
+  const ppu = () => state.m * state.cam.zoom;                         // screen pixels per map unit
+  const toScreen = (x, y) => [state.W / 2 + (x - state.cam.x) * ppu(), state.H / 2 + (y - state.cam.y) * ppu()];
+  const toWorld = (sx, sy) => [state.cam.x + (sx - state.W / 2) / ppu(), state.cam.y + (sy - state.H / 2) / ppu()];
+  function fitZoom() { return Math.min(state.W / (state.world.w * state.m), state.H / (state.world.h * state.m)); }
+  function clampCam() {
+    const c = state.cam, hw = state.W / 2 / ppu(), hh = state.H / 2 / ppu(), w = state.world;
+    c.x = w.w <= hw * 2 ? w.w / 2 : Math.max(hw, Math.min(w.w - hw, c.x));
+    c.y = w.h <= hh * 2 ? w.h / 2 : Math.max(hh, Math.min(w.h - hh, c.y));
+  }
+  function updateCamera(dt, snap) {
+    const c = state.cam, h = state.hole;
+    const targetZoom = Math.max(fitZoom(), Math.min(1, HOLE_ON_SCREEN / h.r));
+    const k = snap ? 1 : Math.min(1, dt * 2.5), kz = snap ? 1 : Math.min(1, dt * 1.5);
+    c.zoom += (targetZoom - c.zoom) * kz;
+    c.x += (h.x - c.x) * k; c.y += (h.y - c.y) * k;
+    clampCam();
   }
   function resize() {
     const r = stage.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-    state.W = r.width; state.H = r.height; state.m = Math.min(r.width, r.height);
+    state.W = r.width; state.H = r.height; state.m = Math.min(r.width, r.height); state.dpr = dpr;
     cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    buildGround(); draw();
+    if (state.items.length) { updateCamera(0, true); draw(); }
   }
   new ResizeObserver(resize).observe(stage);
 
-  /* ---------- input: drag the hole around ---------- */
+  /* ---------- input: drag the hole; holding a finger near an edge keeps it travelling ---------- */
   function aim(e) {
     const r = stage.getBoundingClientRect();
-    state.hole.tx = Math.max(0, Math.min(1, (e.clientX - r.left) / state.W));
-    state.hole.ty = Math.max(0, Math.min(1, (e.clientY - r.top) / state.H));
+    state.pointer.sx = e.clientX - r.left; state.pointer.sy = e.clientY - r.top;
+    setTargetFromPointer();
   }
-  stage.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; aim(e); try { stage.setPointerCapture(e.pointerId); } catch {} });
-  stage.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || e.buttons || e.pressure) aim(e); });
+  function setTargetFromPointer() {
+    const [x, y] = toWorld(state.pointer.sx, state.pointer.sy), w = state.world;
+    state.hole.tx = Math.max(0, Math.min(w.w, x)); state.hole.ty = Math.max(0, Math.min(w.h, y));
+  }
+  stage.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    state.pointer.down = true; aim(e);
+    try { stage.setPointerCapture(e.pointerId); } catch {}
+  });
+  stage.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || state.pointer.down) aim(e); });
+  const lift = () => { state.pointer.down = false; };
+  stage.addEventListener('pointerup', lift); stage.addEventListener('pointercancel', lift);
   document.addEventListener('keydown', e => {
-    const h = state.hole, d = 0.08;
-    if (e.key === 'ArrowLeft') h.tx = Math.max(0, h.tx - d);
-    if (e.key === 'ArrowRight') h.tx = Math.min(1, h.tx + d);
-    if (e.key === 'ArrowUp') h.ty = Math.max(0, h.ty - d);
-    if (e.key === 'ArrowDown') h.ty = Math.min(1, h.ty + d);
+    const h = state.hole, d = 0.15, w = state.world;
+    if (e.key === 'ArrowLeft') h.tx = Math.max(0, h.x - d);
+    if (e.key === 'ArrowRight') h.tx = Math.min(w.w, h.x + d);
+    if (e.key === 'ArrowUp') h.ty = Math.max(0, h.y - d);
+    if (e.key === 'ArrowDown') h.ty = Math.min(w.h, h.y + d);
   });
 
   /* ---------- game loop ---------- */
@@ -342,33 +385,33 @@
     if (!state.running) return;
     const dt = Math.min(0.05, (now - state.last) / 1000 || 0); state.last = now;
     state.elapsed += dt;
-    const { W, H, m } = state, h = state.hole;
-    // move toward the finger, at most SPEED map-units per second
-    const dx = (h.tx - h.x) * W, dy = (h.ty - h.y) * H, dist = Math.hypot(dx, dy), step = SPEED * m * dt;
-    if (dist > 0.5) { const k = Math.min(1, step / dist); h.x += dx * k / W; h.y += dy * k / H; }
+    const h = state.hole;
+    if (state.pointer.down) setTargetFromPointer();   // camera moves, so re-read where the finger points
+    const dx = h.tx - h.x, dy = h.ty - h.y, dist = Math.hypot(dx, dy);
+    const step = SPEED * Math.max(1, h.r / R0 * 0.3) * dt;
+    if (dist > 1e-4) { const k = Math.min(1, step / dist); h.x += dx * k; h.y += dy * k; }
     h.gulp = Math.max(0, h.gulp - dt * 3);
     state.bumpCooldown -= dt;
 
-    const hx = h.x * W, hy = h.y * H, hr = h.r * m;
     for (const it of state.items) {
       if (it.st === 'gone') continue;
-      const ox = it.x * W, oy = it.y * H, or = it.s * m / 2;
+      const or = it.s / 2;
       if (it.st === 'idle') {
         it.wob = Math.max(0, it.wob - dt * 2.5);
-        const d = Math.hypot(ox - hx, oy - hy);
-        if (or < hr * EAT) {
-          if (d < hr * 0.95 - or * 0.3) { it.st = 'fall'; it.t = 0; }
-        } else if (d < hr + or * 0.4) {
+        const d = Math.hypot(it.x - h.x, it.y - h.y);
+        if (or < h.r * EAT) {
+          if (d < h.r * 0.95 - or * 0.3) { it.st = 'fall'; it.t = 0; }
+        } else if (d < h.r + or * 0.4) {
           it.wob = 1;
           if (state.bumpCooldown <= 0) { sfx.bump(); state.bumpCooldown = 0.6; }
         }
       } else if (it.st === 'fall') {
         it.t += dt;
-        // slide toward the (moving) centre of the hole while shrinking
         it.x += (h.x - it.x) * Math.min(1, dt * 8); it.y += (h.y - it.y) * Math.min(1, dt * 8);
         if (it.t >= 0.45) eat(it);
       }
     }
+    updateCamera(dt);
     draw();
     if (state.running) requestAnimationFrame(tick);
   }
@@ -382,7 +425,6 @@
     state.eaten++;
     if (it.tier >= 3) say(`吃掉${it.name}了！`);
     updateProgress();
-    // Tell the child when the hole has grown enough for the next size up.
     const next = state.canEat + 1;
     if (next < TIER_SIZE.length && TIER_SIZE[next] / 2 < h.r * EAT) {
       state.canEat = next;
@@ -395,36 +437,80 @@
     if (state.eaten >= state.total) finish();
   }
 
+  /* ---------- drawing ---------- */
+  function drawGround() {
+    const d = state.deco, { W, H, dpr } = state, z = ppu();
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.fillStyle = d.edge; g.fillRect(0, 0, W, H);           // outside the world
+    // world-space shapes: scale the context so vector shapes stay crisp
+    g.setTransform(dpr * z, 0, 0, dpr * z, dpr * (W / 2 - state.cam.x * z), dpr * (H / 2 - state.cam.y * z));
+    const ww = state.world.w, wh = state.world.h;
+    g.fillStyle = d.bg; g.fillRect(0, 0, ww, wh);
+    if (d.sea) {
+      g.fillStyle = '#5fc3ee'; g.fillRect(0, 0, ww, d.sea);
+      g.fillStyle = '#bfe9f7'; g.fillRect(0, d.sea - 0.03, ww, 0.03);
+      g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 0.008;
+      for (let y = 0.08; y < d.sea - 0.05; y += 0.12) for (let x = 0.05; x < ww; x += 0.3) { g.beginPath(); g.arc(x + (y * 3 % 0.15), y, 0.05, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
+    }
+    if (d.nebulas) for (const [x, y, r, c] of d.nebulas) {
+      const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, c + '66'); gr.addColorStop(1, c + '00');
+      g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    }
+    if (d.stars) { g.fillStyle = '#ffffff'; for (const [x, y, r, a] of d.stars) { g.globalAlpha = a; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); } g.globalAlpha = 1; }
+    if (d.dots) { g.fillStyle = d.dot; for (const [x, y, r] of d.dots) { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); } }
+    if (d.paths) { g.strokeStyle = d.path; g.lineWidth = 0.07; g.lineCap = 'round'; for (const [a, b, c2, e] of d.paths) { g.beginPath(); g.moveTo(...a); g.bezierCurveTo(...b, ...c2, ...e); g.stroke(); } }
+    if (d.ponds) { g.fillStyle = d.pond; for (const [x, y, rx, ry] of d.ponds) { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill(); } }
+    if (d.roads) {
+      const { xs, ys, w } = d.roads;
+      g.fillStyle = '#5d6672';
+      for (const y of ys) g.fillRect(0, y - w / 2, ww, w);
+      for (const x of xs) g.fillRect(x - w / 2, 0, w, wh);
+      g.strokeStyle = '#ffffff'; g.lineWidth = 0.006; g.setLineDash([0.03, 0.03]);
+      for (const y of ys) { g.beginPath(); g.moveTo(0, y); g.lineTo(ww, y); g.stroke(); }
+      for (const x of xs) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, wh); g.stroke(); }
+      g.setLineDash([]);
+    }
+    if (d.fields) for (const [x, y, w, h] of d.fields) { g.fillStyle = '#c9925a'; for (let k = 0; k < 6; k++) g.fillRect(x, y + k * h / 6, w, h / 12); }
+    if (d.yards) for (const [x, y, w, h] of d.yards) { g.fillStyle = '#e8cf7a'; g.fillRect(x, y, w, h); g.strokeStyle = '#8a5a33'; g.lineWidth = 0.01; g.strokeRect(x, y, w, h); }
+    if (d.mud) { g.fillStyle = '#9b7a4c'; for (const [x, y, rx, ry] of d.mud) { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill(); } }
+    if (d.lava) { for (const [x, y, rx, ry] of d.lava) { g.fillStyle = '#ff7a2a'; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill(); g.fillStyle = '#ffd23a'; g.beginPath(); g.ellipse(x, y, rx * 0.5, ry * 0.5, 0, 0, 7); g.fill(); } }
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
   function draw() {
-    const { W, H, m } = state; if (!W) return;
-    g.clearRect(0, 0, W, H);
-    if (state.ground) g.drawImage(state.ground, 0, 0, W, H);
-    const h = state.hole, hx = h.x * W, hy = h.y * H;
-    const hr = h.r * m * (1 + (reduceMotion ? 0 : Math.sin(h.gulp * Math.PI) * 0.06));
+    const { W, H } = state; if (!W || !state.deco) return;
+    g.setTransform(state.dpr, 0, 0, state.dpr, 0, 0); g.clearRect(0, 0, W, H);
+    drawGround();
+    const z = ppu(), h = state.hole, [hx, hy] = toScreen(h.x, h.y);
+    const hr = h.r * z * (1 + (reduceMotion ? 0 : Math.sin(h.gulp * Math.PI) * 0.06));
 
     // the hole
     g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.arc(hx, hy + hr * 0.08, hr * 1.08, 0, Math.PI * 2); g.fill();
     const grad = g.createRadialGradient(hx, hy + hr * 0.15, hr * 0.1, hx, hy, hr);
     grad.addColorStop(0, '#05060a'); grad.addColorStop(0.75, '#141826'); grad.addColorStop(1, '#2d3448');
     g.fillStyle = grad; g.beginPath(); g.arc(hx, hy, hr, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = Math.max(3, hr * 0.06);
+    g.strokeStyle = state.map === 'space' ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.35)'; g.lineWidth = Math.max(3, hr * 0.06);
     g.beginPath(); g.arc(hx, hy, hr - g.lineWidth / 2, 0, Math.PI * 2); g.stroke();
 
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    // things falling in: clipped to the hole so they look like they drop inside
+    // things falling in, clipped to the hole
     g.save(); g.beginPath(); g.arc(hx, hy, hr, 0, Math.PI * 2); g.clip();
     for (const it of state.items) {
       if (it.st !== 'fall') continue;
-      const p = Math.min(1, it.t / 0.45), size = it.s * m * (1 - p * 0.9);
-      g.save(); g.translate(it.x * W, it.y * H); g.rotate(reduceMotion ? 0 : p * 5);
+      const p = Math.min(1, it.t / 0.45), [sx, sy] = toScreen(it.x, it.y), size = it.s * z * (1 - p * 0.9);
+      g.save(); g.translate(sx, sy); g.rotate(reduceMotion ? 0 : p * 5);
       g.globalAlpha = 1 - p * 0.5; g.fillStyle = '#000'; g.font = `${size}px ${EMOJI_FONT}`; g.fillText(it.e, 0, 0); g.restore();
     }
     g.restore();
 
-    // everything still standing, back to front
+    // standing things on screen, back to front
+    const pad = 0.15 * z;
     const standing = state.items.filter(it => it.st === 'idle').sort((a, b) => a.y - b.y);
+    let edibleOnScreen = false;
     for (const it of standing) {
-      const ox = it.x * W, oy = it.y * H, size = it.s * m;
+      const [ox, oy] = toScreen(it.x, it.y), size = it.s * z;
+      if (ox < -pad || ox > W + pad || oy < -pad || oy > H + pad) continue;
+      if (it.s / 2 < h.r * EAT && ox > 0 && ox < W && oy > 0 && oy < H) edibleOnScreen = true;
       g.fillStyle = 'rgba(0,0,0,.15)';
       g.beginPath(); g.ellipse(ox, oy + size * 0.42, size * 0.38, size * 0.1, 0, 0, Math.PI * 2); g.fill();
       g.save(); g.translate(ox, oy);
@@ -432,6 +518,53 @@
       g.fillStyle = '#000'; // a translucent fill would also fade colour emoji
       g.font = `${size}px ${EMOJI_FONT}`; g.fillText(it.e, 0, 0); g.restore();
     }
+
+    // Nothing to eat in view, or only a few things left: point at the nearest edible things.
+    const left = standing.length;
+    if (state.running && left && (!edibleOnScreen || left <= 8)) drawArrows(standing, hx, hy);
+    drawMinimap(standing);
+  }
+
+  function drawArrows(standing, hx, hy) {
+    const { W, H } = state, h = state.hole;
+    const edible = standing.filter(it => it.s / 2 < h.r * EAT);
+    const pool = (edible.length ? edible : standing)
+      .map(it => ({ it, d: Math.hypot(it.x - h.x, it.y - h.y), p: toScreen(it.x, it.y) }))
+      .filter(o => o.p[0] < 0 || o.p[0] > W || o.p[1] < 0 || o.p[1] > H)
+      .sort((a, b) => a.d - b.d).slice(0, 3);
+    const m = 40;
+    for (const { it, p } of pool) {
+      const ang = Math.atan2(p[1] - H / 2, p[0] - W / 2);
+      // where the ray from the centre leaves the screen (inset by the margin)
+      const kx = (W / 2 - m) / Math.abs(Math.cos(ang) || 1e-6), ky = (H / 2 - m) / Math.abs(Math.sin(ang) || 1e-6);
+      const k = Math.min(kx, ky), ax = W / 2 + Math.cos(ang) * k, ay = H / 2 + Math.sin(ang) * k;
+      g.save(); g.translate(ax, ay);
+      g.fillStyle = 'rgba(255,255,255,.92)'; g.beginPath(); g.arc(0, 0, 26, 0, 7); g.fill();
+      g.rotate(ang); g.fillStyle = '#2b59c3'; g.beginPath(); g.moveTo(36, 0); g.lineTo(24, -10); g.lineTo(24, 10); g.closePath(); g.fill();
+      g.rotate(-ang);
+      g.globalAlpha = 0.9; g.fillStyle = '#000'; g.font = `30px ${EMOJI_FONT}`; g.fillText(it.e, 0, 1); g.restore();
+    }
+  }
+
+  function drawMinimap(standing) {
+    const { W, H } = state, w = state.world, z = ppu();
+    if (W / z >= w.w * 0.98 && H / z >= w.h * 0.98) return;     // whole world already in view
+    let mw = Math.min(140, W * 0.24), mh = mw * w.h / w.w;
+    if (mh > H * 0.28) { mh = H * 0.28; mw = mh * w.w / w.h; }
+    const x0 = W - mw - 12, y0 = 12, s = mw / w.w;
+    g.fillStyle = 'rgba(255,255,255,.8)'; g.beginPath();
+    if (g.roundRect) g.roundRect(x0 - 4, y0 - 4, mw + 8, mh + 8, 10); else g.rect(x0 - 4, y0 - 4, mw + 8, mh + 8);
+    g.fill();
+    g.fillStyle = state.deco.bg; g.fillRect(x0, y0, mw, mh);
+    const h = state.hole;
+    for (const it of standing) {
+      g.fillStyle = it.s / 2 < h.r * EAT ? '#2fb36f' : 'rgba(30,42,74,.45)';
+      g.beginPath(); g.arc(x0 + it.x * s, y0 + it.y * s, Math.max(1.5, it.s * s * 0.5), 0, 7); g.fill();
+    }
+    g.fillStyle = '#05060a'; g.beginPath(); g.arc(x0 + h.x * s, y0 + h.y * s, Math.max(3, h.r * s), 0, 7); g.fill();
+    const vw = W / z * s, vh = H / z * s;
+    g.strokeStyle = '#2b59c3'; g.lineWidth = 2;
+    g.strokeRect(x0 + state.cam.x * s - vw / 2, y0 + state.cam.y * s - vh / 2, vw, vh);
   }
 
   /* ---------- round flow ---------- */
@@ -444,10 +577,14 @@
     stop();
     $('win').hidden = true; stopConfetti();
     stage.querySelector('.toast')?.remove();
-    Object.assign(state.hole, { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5, r: R0, gulp: 0 });
-    state.items = buildItems();
+    buildWorld();
+    const w = state.world;
+    Object.assign(state.hole, { x: w.w / 2, y: w.h / 2, tx: w.w / 2, ty: w.h / 2, r: R0, gulp: 0 });
+    Object.assign(state.cam, { x: w.w / 2, y: w.h / 2, zoom: 1 });
     Object.assign(state, { eaten: 0, total: state.items.length, canEat: 0, elapsed: 0 });
-    buildGround(); updateProgress();
+    state.pointer.down = false;
+    stage.style.background = state.deco.bg;
+    updateCamera(0, true); updateProgress();
     $('goText').textContent = '開始'; $('start').hidden = false;
     syncToolbar(); draw();
   }
@@ -460,15 +597,14 @@
   function stop() { state.running = false; }
   function pause() {
     if (!state.running) return;
-    stop(); $('goText').textContent = '繼續'; $('start').hidden = false;
+    stop(); state.pointer.down = false; $('goText').textContent = '繼續'; $('start').hidden = false; draw();
   }
   function finish() {
     stop();
     setTimeout(() => {
-      const stars = state.elapsed <= 150 ? 3 : 2; // always encouraging: at least 2 stars
+      const stars = state.elapsed <= 300 ? 3 : 2; // always encouraging: at least 2 stars
       $('stars').innerHTML = [0, 1, 2].map(i => i < stars ? '⭐' : '<span class="dim">⭐</span>').join('');
       $('winTitle').textContent = `${MAPS[state.map].label}全部吃光光了！`;
-      $('next').hidden = false;
       $('win').hidden = false;
       sfx.win(); say('全部吃光光了！好厲害！');
       startConfetti();
@@ -518,7 +654,7 @@
       x: Math.random() * innerWidth, y: -20 - Math.random() * innerHeight * 0.6,
       vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3,
       r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.2,
-      w: 8 + Math.random() * 8, h: 5 + Math.random() * 6, color: colors[Math.floor(Math.random() * colors.length)],
+      w: 8 + Math.random() * 8, h: 5 + Math.random() * 6, color: rand(colors),
     }));
     const t0 = performance.now();
     (function frame(now) {
@@ -536,7 +672,7 @@
     if (confettiCanvas) { confettiCanvas.remove(); confettiCanvas = null; }
   }
 
-  // Wait for the first layout so items are placed for the real map size.
+  // Wait for the first layout so the world is sized for the real screen.
   requestAnimationFrame(() => { resize(); newGame(); });
 })();
 </script>
