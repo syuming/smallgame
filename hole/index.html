@@ -166,7 +166,7 @@
       <button class="chip" id="restart" aria-label="重新開始"><span class="emo">🔄</span></button>
     </div>
   </header>
-  <main class="stage" id="stage" aria-label="地圖，手指拖著洞洞移動；小地圖在右上角">
+  <main class="stage" id="stage" aria-label="地圖：按住畫面任何地方，往想去的方向滑動，洞洞就會移動；小地圖在右上角">
     <canvas id="cv"></canvas>
     <div class="start" id="start"><button id="go" aria-label="開始"><span class="play">▶</span><span id="goText">開始</span></button></div>
   </main>
@@ -257,9 +257,9 @@
     sound: store.get('sound', true) !== false,
     running: false, items: [], pops: [], deco: null, eaten: 0, total: 0, canEat: 0, elapsed: 0, last: 0, bumpCooldown: 0,
     world: { w: 2.6, h: 2 },
-    hole: { x: 1.3, y: 1, r: R0, tx: 1.3, ty: 1, vx: 0, vy: 0, gulp: 0 },
+    hole: { x: 1.3, y: 1, r: R0, vx: 0, vy: 0, gulp: 0 },
     cam: { x: 1.3, y: 1, zoom: 1 },
-    pointer: { down: false, sx: 0, sy: 0 },
+    pointer: { down: false, id: null, x0: 0, y0: 0, sx: 0, sy: 0 },
     W: 0, H: 0, m: 0, dpr: 1,
   };
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -377,31 +377,40 @@
   }
   new ResizeObserver(resize).observe(stage);
 
-  /* ---------- input: drag the hole; holding a finger near an edge keeps it travelling ---------- */
-  function aim(e) {
-    const r = stage.getBoundingClientRect();
-    state.pointer.sx = e.clientX - r.left; state.pointer.sy = e.clientY - r.top;
-    setTargetFromPointer();
-  }
-  function setTargetFromPointer() {
-    const [x, y] = toWorld(state.pointer.sx, state.pointer.sy), w = state.world;
-    state.hole.tx = Math.max(0, Math.min(w.w, x)); state.hole.ty = Math.max(0, Math.min(w.h, y));
-  }
+  /* ---------- input: a joystick that appears wherever the finger presses ----------
+     Press anywhere, then slide: the hole travels in that direction, faster the further you slide.
+     The finger never has to sit on the hole or on the things being eaten. */
+  const STICK_DEAD = 10, STICK_FULL = 70;   // px: ignore tiny wiggles; full speed at this distance
+  function stagePoint(e) { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
   stage.addEventListener('pointerdown', e => {
-    if (e.target.closest('button')) return;
-    state.pointer.down = true; aim(e);
+    if (e.target.closest('button') || state.pointer.down) return;
+    const [x, y] = stagePoint(e);
+    Object.assign(state.pointer, { down: true, id: e.pointerId, x0: x, y0: y, sx: x, sy: y });
     try { stage.setPointerCapture(e.pointerId); } catch {}
   });
-  stage.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || state.pointer.down) aim(e); });
-  const lift = () => { state.pointer.down = false; };
-  stage.addEventListener('pointerup', lift); stage.addEventListener('pointercancel', lift);
-  document.addEventListener('keydown', e => {
-    const h = state.hole, d = 0.15, w = state.world;
-    if (e.key === 'ArrowLeft') h.tx = Math.max(0, h.x - d);
-    if (e.key === 'ArrowRight') h.tx = Math.min(w.w, h.x + d);
-    if (e.key === 'ArrowUp') h.ty = Math.max(0, h.y - d);
-    if (e.key === 'ArrowDown') h.ty = Math.min(w.h, h.y + d);
+  stage.addEventListener('pointermove', e => {
+    if (!state.pointer.down || e.pointerId !== state.pointer.id) return;
+    [state.pointer.sx, state.pointer.sy] = stagePoint(e);
   });
+  const lift = e => { if (e.pointerId === state.pointer.id) state.pointer.down = false; };
+  stage.addEventListener('pointerup', lift); stage.addEventListener('pointercancel', lift);
+  // Arrow keys work like a fully pushed stick.
+  const keys = new Set();
+  document.addEventListener('keydown', e => { if (e.key.startsWith('Arrow')) { keys.add(e.key); e.preventDefault(); } });
+  document.addEventListener('keyup', e => keys.delete(e.key));
+  function stickInput() {
+    const p = state.pointer;
+    if (p.down) {
+      const dx = p.sx - p.x0, dy = p.sy - p.y0, len = Math.hypot(dx, dy);
+      if (len < STICK_DEAD) return [0, 0];
+      const k = Math.min(1, (len - STICK_DEAD) / (STICK_FULL - STICK_DEAD)) / len;
+      return [dx * k, dy * k];
+    }
+    const kx = (keys.has('ArrowRight') ? 1 : 0) - (keys.has('ArrowLeft') ? 1 : 0);
+    const ky = (keys.has('ArrowDown') ? 1 : 0) - (keys.has('ArrowUp') ? 1 : 0);
+    const kl = Math.hypot(kx, ky);
+    return kl ? [kx / kl, ky / kl] : [0, 0];
+  }
 
   /* ---------- game loop ---------- */
   function tick(now) {
@@ -409,13 +418,11 @@
     const dt = Math.min(0.05, (now - state.last) / 1000 || 0); state.last = now;
     state.elapsed += dt;
     const h = state.hole;
-    if (state.pointer.down) setTargetFromPointer();   // camera moves, so re-read where the finger points
-    // Glide toward the finger: speed up gently, slow down when close, so the hole never jumps.
-    const dx = h.tx - h.x, dy = h.ty - h.y, dist = Math.hypot(dx, dy);
+    // Steer with the stick: speed up gently and coast to a stop when the finger lifts.
+    const [sx, sy] = stickInput();
     const vmax = SPEED * Math.min(1.6, Math.max(1, h.r / R0 * 0.2));
-    const want = Math.min(vmax, dist * 2.5), ux = dist > 1e-4 ? dx / dist : 0, uy = dist > 1e-4 ? dy / dist : 0;
-    const ease = Math.min(1, dt * 5);
-    h.vx += (ux * want - h.vx) * ease; h.vy += (uy * want - h.vy) * ease;
+    const ease = Math.min(1, dt * ((sx || sy) ? 5 : 4));
+    h.vx += (sx * vmax - h.vx) * ease; h.vy += (sy * vmax - h.vy) * ease;
     h.x = Math.max(0, Math.min(state.world.w, h.x + h.vx * dt)); h.y = Math.max(0, Math.min(state.world.h, h.y + h.vy * dt));
     for (const p of state.pops) p.t += dt;
     state.pops = state.pops.filter(p => p.t < 1.2);
@@ -557,8 +564,26 @@
     // Nothing to eat in view, or only a few things left: point at the nearest edible things.
     const left = standing.length;
     if (state.running && left && (!edibleOnScreen || left <= 8)) drawArrows(standing, hx, hy);
+    // Outline the hole on top of everything, so it stays visible when it slips under a house or a tree.
+    g.save();
+    g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 3; g.setLineDash([10, 8]);
+    g.beginPath(); g.arc(hx, hy, hr + 3, 0, Math.PI * 2); g.stroke();
+    g.restore();
     drawPops(hx, hy, hr);
+    drawStick();
     drawMinimap(standing);
+  }
+
+  // The joystick under the finger: a ring where it pressed and a knob that follows the slide.
+  function drawStick() {
+    const p = state.pointer; if (!p.down || !state.running) return;
+    const dx = p.sx - p.x0, dy = p.sy - p.y0, len = Math.hypot(dx, dy), k = len > STICK_FULL ? STICK_FULL / len : 1;
+    g.save();
+    g.fillStyle = 'rgba(255,255,255,.25)'; g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 4;
+    g.beginPath(); g.arc(p.x0, p.y0, STICK_FULL, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.fillStyle = 'rgba(43,89,195,.75)'; g.beginPath(); g.arc(p.x0 + dx * k, p.y0 + dy * k, 30, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.stroke();
+    g.restore();
   }
 
   // Things just eaten float up out of the hole on a white badge so a child can see them.
@@ -628,7 +653,7 @@
     stage.querySelector('.toast')?.remove();
     buildWorld();
     const w = state.world;
-    Object.assign(state.hole, { x: w.w / 2, y: w.h / 2, tx: w.w / 2, ty: w.h / 2, vx: 0, vy: 0, r: R0, gulp: 0 });
+    Object.assign(state.hole, { x: w.w / 2, y: w.h / 2, vx: 0, vy: 0, r: R0, gulp: 0 });
     Object.assign(state.cam, { x: w.w / 2, y: w.h / 2, zoom: 1 });
     Object.assign(state, { eaten: 0, total: state.items.length, canEat: 0, elapsed: 0, pops: [] });
     $('recent').innerHTML = '';
@@ -639,7 +664,8 @@
     syncToolbar(); draw();
   }
   function begin() {
-    audio(); say('拖著洞洞，把東西吃光光！先吃小的喔！');
+    audio(); say('按住畫面，往想去的方向滑，洞洞就會走！先吃小的喔！');
+    if (!state.eaten) toast('👆 按住畫面，往想去的方向滑');
     $('start').hidden = true;
     state.running = true; state.last = performance.now();
     requestAnimationFrame(tick);
