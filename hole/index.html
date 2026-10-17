@@ -239,7 +239,7 @@
     big:   { label: '大地圖', world: 2, counts: [30, 22, 13, 8, 4], grow: 0.4, rmax: 0.3,  stars: 300, icon: 26 },
   };
   const R0 = 0.045, EAT = 0.8;
-  const SPEED = 0.55;   // map units per second: slow enough for a child to watch what gets eaten
+  const SPEED = 0.32;   // map units per second with the stick fully pushed: slow enough to watch what gets eaten
   const FALL = 0.65;    // seconds for a thing to tumble into the hole
   const RECENT = 6;     // how many recent eats to show by the progress bar
   const HOLE_ON_SCREEN = 0.17;           // zoom out so the hole never covers more than this
@@ -380,7 +380,7 @@
   /* ---------- input: a joystick that appears wherever the finger presses ----------
      Press anywhere, then slide: the hole travels in that direction, faster the further you slide.
      The finger never has to sit on the hole or on the things being eaten. */
-  const STICK_DEAD = 10, STICK_FULL = 70;   // px: ignore tiny wiggles; full speed at this distance
+  const STICK_DEAD = 10, STICK_FULL = 90;   // px: ignore tiny wiggles; full speed at this distance
   function stagePoint(e) { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
   stage.addEventListener('pointerdown', e => {
     if (e.target.closest('button') || state.pointer.down) return;
