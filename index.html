@@ -98,6 +98,10 @@
   .art.orchard .f { font-family: var(--emoji); font-size: 2.6rem; line-height: 1; }
   .art.orchard .k { font-family: var(--emoji); font-size: 4.4rem; line-height: 1; position: relative; z-index: 1; margin-top: 6px; }
   .art.hole { background: #7ccf6a; position: relative; }
+  .art.match { background: #fff7dc; }
+  .m3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 58%; }
+  .m3 i { aspect-ratio: 1; border-radius: 22%; background: var(--t); display: grid; place-items: center; font-style: normal; font-family: var(--emoji); font-size: 1.5rem; }
+  .m3 i.on { box-shadow: inset 0 0 0 3px var(--leaf); }
   .art.hole .pit { width: 46%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 50% 58%, #05060a 0 30%, #141826 70%, #2d3448); box-shadow: inset 0 0 0 4px rgba(255,255,255,.35); display: grid; place-items: center; font-family: var(--emoji); font-size: 1.6rem; }
   .art.hole .pit span { rotate: 30deg; scale: .8; }
   .art.hole .near { position: absolute; font-family: var(--emoji); line-height: 1; }
@@ -150,6 +154,10 @@
     <a class="tile" href="hole/">
       <div class="art hole" aria-hidden="true"><span class="near" style="left:12%;top:14%;font-size:1.8rem">🌸</span><span class="near" style="right:10%;top:10%;font-size:2.8rem">🏠</span><span class="near" style="right:16%;bottom:10%;font-size:2rem">🚗</span><span class="pit"><span>🍎</span></span></div>
       <div class="info"><span class="name">洞洞吃光光</span><span class="desc">拖著洞洞，把東西吃光光</span></div>
+    </a>
+    <a class="tile" href="match/">
+      <div class="art match" aria-hidden="true"><span class="m3"><i style="--t:#ffd3d3">🍎</i><i style="--t:#e8d6ff">🍇</i><i style="--t:#d3f3c4">🍏</i><i class="on" style="--t:#fff1a6">🍋</i><i class="on" style="--t:#fff1a6">🍋</i><i class="on" style="--t:#fff1a6">🍋</i><i style="--t:#d2defc">🫐</i><i style="--t:#ffd3d3">🍎</i><i style="--t:#e8d6ff">🍇</i></span></div>
+      <div class="info"><span class="name">消消樂</span><span class="desc">三個一樣排一排，消掉它</span></div>
     </a>
   </main>
 </div>
