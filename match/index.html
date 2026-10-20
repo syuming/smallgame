@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>消消樂</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="消消樂">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#ffd34e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans+TC:wght@700;900&display=swap">
+<style>
+  /* Layout: same sunny play mat; toolbar, a square 7×7 board in a white tray, and the goal chips underneath. */
+  :root {
+    --sun: #ffd34e;
+    --sun-deep: #f5b82e;
+    --cobalt: #2b59c3;
+    --cobalt-deep: #1c3f94;
+    --paper: #ffffff;
+    --ink: #1e2a4a;
+    --leaf: #2fb36f;
+    --coral: #ff6b5b;
+    --font-display: "Baloo 2", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background-color: var(--sun);
+    background-image: radial-gradient(var(--sun-deep) 2px, transparent 2.5px);
+    background-size: 28px 28px;
+    color: var(--ink);
+    font-family: var(--font-body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  button { font: inherit; color: inherit; touch-action: manipulation; }
+  a.chip { color: inherit; text-decoration: none; }
+  button:focus-visible, a:focus-visible { outline: 4px solid var(--cobalt); outline-offset: 3px; }
+
+  .app { height: 100%; display: flex; flex-direction: column; gap: 10px; padding-block: 12px; }
+
+  /* ---------- toolbar (shared look) ---------- */
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .brand {
+    font-family: var(--font-display); font-weight: 900; font-size: clamp(1.6rem, 4vw, 2.3rem);
+    line-height: 1; margin: 0 auto 0 0; color: var(--cobalt-deep); letter-spacing: 0.04em;
+    text-shadow: 3px 3px 0 var(--paper);
+  }
+  .group { display: flex; gap: 8px; }
+  .chip {
+    min-width: 60px; height: 60px; padding: 0 12px; border: 0; border-radius: 18px;
+    background: var(--paper); box-shadow: 0 5px 0 var(--sun-deep); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: transform .12s, box-shadow .12s;
+  }
+  .chip:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--sun-deep); }
+  .chip[aria-pressed="true"] { background: var(--cobalt); color: var(--paper); box-shadow: 0 5px 0 var(--cobalt-deep); }
+  .chip .emo { font-family: var(--emoji); font-size: 2rem; line-height: 1; }
+  .chip .txt { font-weight: 700; font-size: 1rem; }
+  .dots { display: inline-flex; gap: 3px; }
+  .dots i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+
+  /* ---------- board ---------- */
+  .play { flex: 1; min-height: 0; display: grid; place-items: center; position: relative; }
+  .tray { padding: 10px; border-radius: 26px; background: var(--paper); box-shadow: 0 8px 0 var(--sun-deep); }
+  .board {
+    position: relative; width: calc(var(--cell) * 7); height: calc(var(--cell) * 7); overflow: hidden; border-radius: 16px;
+    background-color: #fff7dc;
+    background-image: linear-gradient(45deg, #ffefc2 25%, transparent 25%, transparent 75%, #ffefc2 75%),
+                      linear-gradient(45deg, #ffefc2 25%, transparent 25%, transparent 75%, #ffefc2 75%);
+    background-size: calc(var(--cell) * 2) calc(var(--cell) * 2);
+    background-position: 0 0, var(--cell) var(--cell);
+    touch-action: none;
+  }
+  .tile {
+    position: absolute; left: 0; top: 0; width: var(--cell); height: var(--cell); padding: calc(var(--cell) * 0.06);
+    transform: translate(calc(var(--c) * var(--cell)), calc(var(--r) * var(--cell)));
+    transition: transform .24s cubic-bezier(.3,1.25,.6,1);
+    pointer-events: none;
+  }
+  .tile .face {
+    position: relative; display: grid; place-items: center; width: 100%; height: 100%; border-radius: 24%;
+    background: var(--tint); box-shadow: inset 0 -4px 0 rgba(0,0,0,.08);
+    font-family: var(--emoji); font-size: calc(var(--cell) * 0.6); line-height: 1;
+    transition: scale .2s, opacity .2s;
+  }
+  .tile.fast { transition-duration: .16s; }
+  .tile.sel .face { outline: 5px solid var(--cobalt); outline-offset: -2px; scale: 1.08; }
+  .tile.pop .face { scale: 0; opacity: 0; }
+  .tile.hint .face { animation: hint .7s ease-in-out infinite; }
+  .tile.bad .face { animation: wiggle .35s ease; }
+  .tile.row .face::after, .tile.col .face::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: repeating-linear-gradient(var(--stripe), rgba(255,255,255,.75) 0 10%, transparent 10% 22%);
+  }
+  .tile.row { --stripe: 0deg; }
+  .tile.col { --stripe: 90deg; }
+  .tile.row .face::before, .tile.col .face::before {
+    content: "⚡"; position: absolute; right: -4%; top: -6%; font-size: calc(var(--cell) * 0.3); z-index: 1;
+  }
+  .tile.rainbow .face {
+    background: conic-gradient(#ff6b6b, #ffb35c, #ffe066, #6fd17c, #5aa9ff, #a77bff, #ff6b6b);
+    box-shadow: inset 0 0 0 4px rgba(255,255,255,.8);
+  }
+  @keyframes hint { 0%,100% { rotate: 0deg; scale: 1; } 30% { rotate: -10deg; scale: 1.08; } 60% { rotate: 10deg; scale: 1.08; } }
+  @keyframes wiggle { 0%,100% { rotate: 0deg; } 25% { rotate: -12deg; } 75% { rotate: 12deg; } }
+
+  .beam { position: absolute; pointer-events: none; border-radius: 999px; z-index: 3;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.95), #ffe066, rgba(255,255,255,.95), transparent);
+    animation: beam .35s ease forwards; }
+  .beam.v { background: linear-gradient(180deg, transparent, rgba(255,255,255,.95), #ffe066, rgba(255,255,255,.95), transparent); }
+  @keyframes beam { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+
+  .toast {
+    position: absolute; left: 50%; top: 8px; translate: -50% 0; z-index: 4; pointer-events: none;
+    padding: 8px 22px; border-radius: 999px; background: var(--paper); box-shadow: 0 5px 0 var(--sun-deep);
+    font-weight: 900; font-size: 1.4rem; white-space: nowrap; animation: toast 1.6s ease forwards;
+  }
+  .toast .emo { font-family: var(--emoji); }
+  @keyframes toast { 0% { opacity: 0; scale: .6; } 15%, 75% { opacity: 1; scale: 1; } 100% { opacity: 0; scale: 1; } }
+
+  /* ---------- goals ---------- */
+  .goals { display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .goals .label { font-weight: 900; font-size: 1.1rem; }
+  .goal {
+    display: flex; align-items: center; gap: 6px; padding: 6px 14px 6px 8px; border-radius: 999px;
+    background: var(--paper); box-shadow: 0 4px 0 var(--sun-deep);
+    font-family: var(--font-display); font-weight: 800; font-size: 1.4rem; font-variant-numeric: tabular-nums;
+  }
+  .goal .emo { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--tint); font-family: var(--emoji); font-size: 1.6rem; }
+  .goal.bump { animation: bump .25s ease; }
+  .goal.done { background: var(--leaf); color: var(--paper); box-shadow: 0 4px 0 #1f8a52; }
+  @keyframes bump { 50% { scale: 1.12; } }
+
+  /* ---------- win panel ---------- */
+  .win {
+    position: fixed; inset: 0; display: grid; place-items: center; z-index: 5;
+    background: rgba(30, 42, 74, .45);
+    padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  }
+  .panel {
+    background: var(--paper); border-radius: 32px; padding: 28px 32px; text-align: center;
+    box-shadow: 0 10px 0 var(--cobalt-deep); max-width: 420px; width: 100%; animation: pop .5s ease;
+  }
+  .panel .big { font-family: var(--emoji); font-size: 4.5rem; line-height: 1; }
+  .panel h2 { font-family: var(--font-display); font-weight: 900; font-size: 2.2rem; margin: 8px 0 4px; color: var(--cobalt-deep); text-wrap: balance; }
+  .stars { font-family: var(--emoji); font-size: 2.6rem; letter-spacing: 6px; margin: 4px 0 18px; }
+  .stars .dim { filter: grayscale(1); opacity: .3; }
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    height: 64px; padding: 0 26px; border: 0; border-radius: 20px; cursor: pointer;
+    font-weight: 900; font-size: 1.3rem; background: var(--cobalt); color: var(--paper);
+    box-shadow: 0 6px 0 var(--cobalt-deep);
+  }
+  .btn.alt { background: var(--coral); box-shadow: 0 6px 0 #d4483a; }
+  .btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--cobalt-deep); }
+  @keyframes pop { 0% { scale: .4; } 70% { scale: 1.1; } 100% { scale: 1; } }
+  canvas.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
+
+  @media (max-width: 560px) {
+    .chip { min-width: 52px; height: 52px; }
+    .chip .txt { display: none; }
+    .goal { font-size: 1.1rem; }
+    .goal .emo { width: 32px; height: 32px; font-size: 1.3rem; }
+    .goals .label { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tile { transition-duration: .01s; }
+    .tile.hint .face, .tile.bad .face, .goal.bump, .panel, .toast, .beam { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <a class="chip" href="../" aria-label="回遊戲選單"><span class="emo">🏠</span></a>
+    <h1 class="brand">消消樂</h1>
+    <div class="group" id="themes" role="group" aria-label="選擇主題"></div>
+    <div class="group" id="levels" role="group" aria-label="選擇難度"></div>
+    <div class="group">
+      <button class="chip" id="sound" aria-pressed="true" aria-label="聲音開關"><span class="emo">🔊</span></button>
+      <button class="chip" id="restart" aria-label="重新開始"><span class="emo">🔄</span></button>
+    </div>
+  </header>
+  <main class="play" id="play">
+    <div class="tray"><div class="board" id="board" aria-label="遊戲盤：往旁邊滑動交換兩顆，或先點一顆再點旁邊那顆"></div></div>
+  </main>
+  <footer class="goals" id="goals" aria-label="要收集的東西"></footer>
+</div>
+
+<div class="win" id="win" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="big">🎉</div>
+    <h2 id="winTitle">全部收集好了！</h2>
+    <div class="stars" id="stars"></div>
+    <div class="actions">
+      <button class="btn" id="again">再玩一次</button>
+      <button class="btn alt" id="next">下一關 ➜</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const N = 7;
+  // Each kind: the emoji and a background tint, so pieces differ by colour as well as picture.
+  const THEMES = {
+    fruit: { label: '水果', icon: '🍓', kinds: [['🍎','#ffd3d3'],['🍊','#ffe0bf'],['🍋','#fff1a6'],['🍏','#d3f3c4'],['🫐','#d2defc'],['🍇','#e8d6ff']] },
+    candy: { label: '糖果', icon: '🍬', kinds: [['🍬','#ffd0e6'],['🍭','#ffe0bf'],['🍩','#fff1a6'],['🍪','#d3f3c4'],['🧁','#d2defc'],['🍫','#e3d0bd']] },
+  };
+  const LEVELS = [
+    { label: '簡單', kinds: 4, goals: 2, need: 12, stars: 15 },
+    { label: '普通', kinds: 5, goals: 3, need: 12, stars: 25 },
+    { label: '挑戰', kinds: 6, goals: 3, need: 18, stars: 35 },
+  ];
+  const RAINBOW = -1;
+
+  const $ = id => document.getElementById(id);
+  const board = $('board'), play = $('play');
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('match.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('match.' + k, JSON.stringify(v)); } catch {} },
+  };
+  const state = {
+    theme: THEMES[store.get('theme', 'fruit')] ? store.get('theme', 'fruit') : 'fruit',
+    level: Math.min(LEVELS.length - 1, Math.max(0, store.get('level', 0) | 0)),
+    sound: store.get('sound', true) !== false,
+    grid: [], goals: [], kinds: 4, busy: false, moves: 0, selected: null, hintTimer: 0, over: false,
+  };
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sleep = ms => new Promise(r => setTimeout(r, reduceMotion ? Math.min(ms, 60) : ms));
+  const rand = n => Math.floor(Math.random() * n);
+
+  /* ---------- sound ---------- */
+  let ctx = null;
+  function audio() {
+    if (!state.sound) return null;
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    } catch { return null; }
+  }
+  function tone(freq, start, dur, type = 'sine', vol = 0.16, slideTo) {
+    const a = audio(); if (!a) return;
+    const t = a.currentTime + start, o = a.createOscillator(), gn = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    gn.gain.setValueAtTime(0.0001, t);
+    gn.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(gn).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+  }
+  const sfx = {
+    swap: () => tone(520, 0, 0.08, 'triangle', 0.08),
+    pop: combo => { const f = 523 * Math.pow(2, Math.min(combo - 1, 8) * 2 / 12); tone(f, 0, 0.16, 'triangle', 0.15); tone(f * 1.5, 0.06, 0.18, 'triangle', 0.1); },
+    bad: () => { tone(330, 0, 0.15, 'sine', 0.1); tone(294, 0.1, 0.18, 'sine', 0.1); },
+    zap: () => tone(1200, 0, 0.3, 'sawtooth', 0.06, 300),
+    special: () => [784, 988, 1175].forEach((f, i) => tone(f, i * 0.06, 0.2, 'triangle', 0.12)),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.35, 'triangle', 0.15)),
+  };
+  function say(text) {
+    if (!state.sound || !('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-TW'; u.rate = 1; u.pitch = 1.25;
+      const v = speechSynthesis.getVoices().find(v => /zh[-_]TW/i.test(v.lang));
+      if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch {}
+  }
+  function toast(html) {
+    play.querySelector('.toast')?.remove();
+    const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = html;
+    play.append(t); setTimeout(() => t.remove(), 1700);
+  }
+
+  /* ---------- tiles ---------- */
+  const kindEmoji = k => k === RAINBOW ? '🌈' : THEMES[state.theme].kinds[k][0];
+  const kindTint = k => k === RAINBOW ? '#ffffff' : THEMES[state.theme].kinds[k][1];
+  function makeTile(k, r, c, fromRow = r) {
+    const el = document.createElement('div');
+    el.className = 'tile';
+    el.innerHTML = '<span class="face"></span>';
+    const t = { k, sp: null, el, r, c };
+    paint(t);
+    el.style.setProperty('--c', c); el.style.setProperty('--r', fromRow);
+    board.append(el);
+    return t;
+  }
+  function paint(t) {
+    t.el.querySelector('.face').textContent = kindEmoji(t.k);
+    t.el.style.setProperty('--tint', kindTint(t.k));
+    t.el.classList.toggle('row', t.sp === 'row');
+    t.el.classList.toggle('col', t.sp === 'col');
+    t.el.classList.toggle('rainbow', t.k === RAINBOW);
+    t.el.dataset.k = t.k; t.el.dataset.sp = t.sp || '';
+  }
+  function place(t, r, c) {
+    t.r = r; t.c = c; state.grid[r][c] = t;
+    t.el.style.setProperty('--r', r); t.el.style.setProperty('--c', c);
+    t.el.dataset.r = r; t.el.dataset.c = c;
+  }
+
+  /* ---------- rules ---------- */
+  const at = (r, c) => (r >= 0 && r < N && c >= 0 && c < N) ? state.grid[r][c] : null;
+  function findRuns() {
+    const runs = [], g = state.grid;
+    for (let r = 0; r < N; r++) for (let c = 0; c < N;) {
+      const k = g[r][c]?.k; let e = c;
+      while (k >= 0 && e + 1 < N && g[r][e + 1]?.k === k) e++;
+      if (k >= 0 && e - c >= 2) runs.push({ k, dir: 'h', cells: Array.from({ length: e - c + 1 }, (_, i) => [r, c + i]) });
+      c = e + 1;
+    }
+    for (let c = 0; c < N; c++) for (let r = 0; r < N;) {
+      const k = g[r][c]?.k; let e = r;
+      while (k >= 0 && e + 1 < N && g[e + 1][c]?.k === k) e++;
+      if (k >= 0 && e - r >= 2) runs.push({ k, dir: 'v', cells: Array.from({ length: e - r + 1 }, (_, i) => [r + i, c]) });
+      r = e + 1;
+    }
+    return runs;
+  }
+  function swapInGrid(a, b) { const g = state.grid, t = g[a[0]][a[1]]; g[a[0]][a[1]] = g[b[0]][b[1]]; g[b[0]][b[1]] = t; }
+  function findMove() {
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) for (const [dr, dc] of [[0, 1], [1, 0]]) {
+      const a = [r, c], b = [r + dr, c + dc]; if (!at(...b)) continue;
+      if (at(...a).k === RAINBOW || at(...b).k === RAINBOW) return [a, b];
+      swapInGrid(a, b); const ok = findRuns().length > 0; swapInGrid(a, b);
+      if (ok) return [a, b];
+    }
+    return null;
+  }
+  function randomKind(r, c) {
+    // Avoid making a ready-made match while filling the board.
+    const bad = new Set(), g = state.grid;
+    if (c >= 2 && g[r][c - 1]?.k === g[r][c - 2]?.k) bad.add(g[r][c - 1].k);
+    if (r >= 2 && g[r - 1]?.[c]?.k === g[r - 2]?.[c]?.k) bad.add(g[r - 1][c].k);
+    const ok = [...Array(state.kinds).keys()].filter(k => !bad.has(k));
+    return ok[rand(ok.length)];
+  }
+
+  /* ---------- a round ---------- */
+  function newGame() {
+    $('win').hidden = true; stopConfetti(); clearHint();
+    const lv = LEVELS[state.level];
+    state.kinds = lv.kinds;
+    Object.assign(state, { busy: false, moves: 0, selected: null, over: false });
+    board.innerHTML = '';
+    do {
+      board.innerHTML = '';
+      state.grid = Array.from({ length: N }, () => Array(N).fill(null));
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) place(makeTile(randomKind(r, c), r, c), r, c);
+    } while (!findMove());
+    const picks = [...Array(lv.kinds).keys()].sort(() => Math.random() - 0.5).slice(0, lv.goals);
+    state.goals = picks.map(k => ({ k, need: lv.need, got: 0 }));
+    renderGoals();
+    syncToolbar(); layout(); armHint();
+  }
+  function renderGoals() {
+    const el = $('goals');
+    el.innerHTML = '<span class="label">收集：</span>';
+    for (const gl of state.goals) {
+      const d = document.createElement('div'); d.className = 'goal'; gl.el = d;
+      d.style.setProperty('--tint', kindTint(gl.k));
+      el.append(d); updateGoal(gl, false);
+    }
+  }
+  function updateGoal(gl, bump = true) {
+    const left = Math.max(0, gl.need - gl.got);
+    gl.el.innerHTML = `<span class="emo">${kindEmoji(gl.k)}</span><span>${left ? left : '✓'}</span>`;
+    gl.el.setAttribute('aria-label', `${kindEmoji(gl.k)} 還差 ${left} 個`);
+    gl.el.classList.toggle('done', !left);
+    if (bump) { gl.el.classList.remove('bump'); void gl.el.offsetWidth; gl.el.classList.add('bump'); }
+  }
+
+  async function trySwap(a, b) {
+    if (state.busy || state.over) return;
+    const ta = at(...a), tb = at(...b); if (!ta || !tb) return;
+    state.busy = true; clearHint(); select(null); audio();
+    place(ta, ...b); place(tb, ...a); sfx.swap();
+    await sleep(200);
+    let ok = false;
+    if (ta.k === RAINBOW || tb.k === RAINBOW) {
+      ok = true; state.moves++;
+      await rainbowBlast(ta.k === RAINBOW ? ta : tb, ta.k === RAINBOW ? tb : ta);
+      await resolve([]);
+    } else if (findRuns().length) {
+      ok = true; state.moves++;
+      await resolve([[ta.r, ta.c], [tb.r, tb.c]]);
+    }
+    if (!ok) {
+      sfx.bad();
+      place(ta, ...a); place(tb, ...b);
+      for (const t of [ta, tb]) { t.el.classList.remove('bad'); void t.el.offsetWidth; t.el.classList.add('bad'); }
+      await sleep(220);
+    }
+    state.busy = false;
+    if (ok) await afterMove();
+    armHint();
+  }
+
+  // Clear matches, make special pieces, drop and refill — repeat while new matches appear.
+  async function resolve(swapCells) {
+    let combo = 0;
+    for (;;) {
+      const runs = findRuns(); if (!runs.length) break;
+      combo++;
+      const clear = new Set(), make = [];
+      for (const run of runs) {
+        run.cells.forEach(([r, c]) => clear.add(r * N + c));
+        if (run.cells.length >= 4) {
+          const pos = run.cells.find(([r, c]) => swapCells.some(([sr, sc]) => sr === r && sc === c)) || run.cells[Math.floor(run.cells.length / 2)];
+          make.push({ r: pos[0], c: pos[1], k: run.k, sp: run.cells.length >= 5 ? 'rainbow' : (run.dir === 'h' ? 'row' : 'col') });
+        }
+      }
+      // The spot that becomes a special piece stays on the board.
+      const keep = new Set();
+      for (const m of make) { const key = m.r * N + m.c; if (!keep.has(key)) { keep.add(key); } }
+      await blast(clear, keep, combo);
+      for (const m of make) {
+        const t = at(m.r, m.c); if (!t) continue;
+        t.k = m.sp === 'rainbow' ? RAINBOW : m.k; t.sp = m.sp === 'rainbow' ? null : m.sp; paint(t);
+      }
+      if (make.length) { sfx.special(); toast(make.some(m => m.sp === 'rainbow') ? '<span class="emo">🌈</span> 彩虹！' : '<span class="emo">⚡</span> 閃電！'); }
+      await gravity();
+      swapCells = [];
+    }
+    if (combo >= 2) {
+      const words = ['好棒！', '太厲害了！', '超級棒！'];
+      const w = words[Math.min(combo - 2, words.length - 1)];
+      toast(w); say(w);
+    }
+  }
+
+  // Remove a set of cells (by key r*N+c), setting off any lightning pieces caught in it.
+  async function blast(clear, keep = new Set(), combo = 1) {
+    const queue = [...clear], fired = new Set();
+    while (queue.length) {
+      const key = queue.pop(), r = Math.floor(key / N), c = key % N, t = at(r, c);
+      if (!t || keep.has(key) || fired.has(key) || !t.sp) continue;
+      fired.add(key); beam(t.sp, r, c); sfx.zap();
+      for (let i = 0; i < N; i++) {
+        const k2 = t.sp === 'row' ? r * N + i : i * N + c;
+        if (!clear.has(k2)) { clear.add(k2); queue.push(k2); }
+      }
+    }
+    sfx.pop(combo);
+    for (const key of clear) {
+      if (keep.has(key)) continue;
+      const t = at(Math.floor(key / N), key % N); if (!t) continue;
+      t.el.classList.add('pop');
+      const gl = state.goals.find(g => g.k === t.k);
+      if (gl && gl.got < gl.need) { gl.got++; updateGoal(gl); }
+    }
+    await sleep(230);
+    for (const key of clear) {
+      if (keep.has(key)) continue;
+      const r = Math.floor(key / N), c = key % N, t = at(r, c); if (!t) continue;
+      t.el.remove(); state.grid[r][c] = null;
+    }
+  }
+  function beam(sp, r, c) {
+    const b = document.createElement('div'), cell = parseFloat(getComputedStyle(board).getPropertyValue('--cell'));
+    if (sp === 'row') Object.assign(b.style, { left: 0, top: (r + 0.3) * cell + 'px', width: '100%', height: cell * 0.4 + 'px' });
+    else { b.classList.add('v'); Object.assign(b.style, { top: 0, left: (c + 0.3) * cell + 'px', height: '100%', width: cell * 0.4 + 'px' }); }
+    board.append(b); setTimeout(() => b.remove(), 400);
+  }
+  async function rainbowBlast(rb, other) {
+    const clear = new Set([rb.r * N + rb.c]);
+    const target = other.k === RAINBOW ? null : other.k;
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const t = at(r, c); if (t && (target === null || t.k === target)) clear.add(r * N + c);
+    }
+    sfx.special(); toast('<span class="emo">🌈</span> 彩虹！'); say('彩虹！');
+    await blast(clear);
+    await gravity();
+  }
+  async function gravity() {
+    let maxDrop = 0;
+    for (let c = 0; c < N; c++) {
+      let write = N - 1;
+      for (let r = N - 1; r >= 0; r--) {
+        const t = state.grid[r][c];
+        if (t) { if (r !== write) { state.grid[r][c] = null; place(t, write, c); maxDrop = Math.max(maxDrop, write - r); } write--; }
+      }
+      const missing = write + 1;
+      for (let r = write; r >= 0; r--) {
+        const t = makeTile(rand(state.kinds), r, c, r - missing - 0.5);
+        state.grid[r][c] = t; t.el.dataset.r = r; t.el.dataset.c = c;
+        void t.el.offsetWidth;                       // start above the board, then fall
+        t.el.style.setProperty('--r', r);
+        maxDrop = Math.max(maxDrop, missing);
+      }
+    }
+    await sleep(maxDrop ? 300 : 0);
+  }
+
+  async function afterMove() {
+    if (state.goals.every(g => g.got >= g.need)) { finish(); return; }
+    if (!findMove()) {
+      toast('沒有可以消的了，洗一洗！');
+      await sleep(600);
+      await shuffle();
+    }
+  }
+  async function shuffle() {
+    const tiles = state.grid.flat();
+    do {
+      for (let i = tiles.length - 1; i > 0; i--) { const j = rand(i + 1); [tiles[i], tiles[j]] = [tiles[j], tiles[i]]; }
+      tiles.forEach((t, i) => { state.grid[Math.floor(i / N)][i % N] = t; });
+    } while (findRuns().length || !findMove());
+    tiles.forEach((t, i) => place(t, Math.floor(i / N), i % N));
+    await sleep(320);
+  }
+
+  function finish() {
+    state.over = true; clearHint();
+    setTimeout(() => {
+      const stars = state.moves <= LEVELS[state.level].stars ? 3 : 2; // always encouraging: at least 2 stars
+      $('stars').innerHTML = [0, 1, 2].map(i => i < stars ? '⭐' : '<span class="dim">⭐</span>').join('');
+      $('next').hidden = state.level >= LEVELS.length - 1;
+      $('win').hidden = false;
+      sfx.win(); say('全部收集好了！好棒！');
+      startConfetti();
+      $('again').focus();
+    }, 400);
+  }
+  $('again').addEventListener('click', newGame);
+  $('next').addEventListener('click', () => {
+    state.level = Math.min(LEVELS.length - 1, state.level + 1); store.set('level', state.level); newGame();
+  });
+
+  /* ---------- hint: after a pause, wiggle a pair that would match ---------- */
+  function clearHint() {
+    clearTimeout(state.hintTimer);
+    board.querySelectorAll('.tile.hint').forEach(e => e.classList.remove('hint'));
+  }
+  function armHint() {
+    clearHint();
+    state.hintTimer = setTimeout(() => {
+      if (state.busy || state.over) return;
+      const m = findMove(); if (!m) return;
+      for (const p of m) at(...p).el.classList.add('hint');
+    }, 6000);
+  }
+
+  /* ---------- input: slide a piece toward a neighbour, or tap one then the next ---------- */
+  let press = null;
+  function cellAt(e) {
+    const rect = board.getBoundingClientRect(), cell = rect.width / N;
+    const c = Math.floor((e.clientX - rect.left) / cell), r = Math.floor((e.clientY - rect.top) / cell);
+    return (r >= 0 && r < N && c >= 0 && c < N) ? [r, c] : null;
+  }
+  function select(p) {
+    if (state.selected) at(...state.selected)?.el.classList.remove('sel');
+    state.selected = p;
+    if (p) at(...p).el.classList.add('sel');
+  }
+  board.addEventListener('pointerdown', e => {
+    if (state.busy || state.over || press) return;
+    const p = cellAt(e); if (!p) return;
+    audio(); clearHint();
+    press = { id: e.pointerId, p, x: e.clientX, y: e.clientY, done: false };
+    try { board.setPointerCapture(e.pointerId); } catch {}
+  });
+  board.addEventListener('pointermove', e => {
+    if (!press || press.done || e.pointerId !== press.id) return;
+    const dx = e.clientX - press.x, dy = e.clientY - press.y, cell = board.getBoundingClientRect().width / N;
+    if (Math.hypot(dx, dy) < cell * 0.3) return;
+    press.done = true;
+    const [r, c] = press.p, q = Math.abs(dx) > Math.abs(dy) ? [r, c + Math.sign(dx)] : [r + Math.sign(dy), c];
+    if (at(...q)) trySwap(press.p, q);
+  });
+  const release = e => {
+    if (!press || e.pointerId !== press.id) return;
+    const pr = press; press = null;
+    if (pr.done || e.type !== 'pointerup') { armHint(); return; }
+    const s = state.selected, p = pr.p;
+    if (s && Math.abs(s[0] - p[0]) + Math.abs(s[1] - p[1]) === 1) trySwap(s, p);
+    else if (s && s[0] === p[0] && s[1] === p[1]) { select(null); armHint(); }
+    else { select(p); sfx.swap(); armHint(); }
+  };
+  board.addEventListener('pointerup', release);
+  board.addEventListener('pointercancel', release);
+
+  /* ---------- toolbar ---------- */
+  for (const [key, th] of Object.entries(THEMES)) {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.dataset.key = key; b.setAttribute('aria-label', th.label);
+    b.innerHTML = `<span class="emo">${th.icon}</span><span class="txt">${th.label}</span>`;
+    b.addEventListener('click', () => { state.theme = key; store.set('theme', key); newGame(); });
+    $('themes').append(b);
+  }
+  LEVELS.forEach((lv, i) => {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.setAttribute('aria-label', lv.label);
+    b.innerHTML = `<span class="dots">${'<i></i>'.repeat(i + 1)}</span><span class="txt">${lv.label}</span>`;
+    b.addEventListener('click', () => { state.level = i; store.set('level', i); newGame(); });
+    $('levels').append(b);
+  });
+  $('sound').addEventListener('click', () => {
+    state.sound = !state.sound; store.set('sound', state.sound);
+    if (!state.sound && 'speechSynthesis' in window) speechSynthesis.cancel();
+    syncToolbar();
+  });
+  $('restart').addEventListener('click', () => { if (!state.busy) newGame(); });
+  function syncToolbar() {
+    [...$('themes').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.key === state.theme));
+    [...$('levels').children].forEach((b, i) => b.setAttribute('aria-pressed', i === state.level));
+    $('sound').setAttribute('aria-pressed', state.sound);
+    $('sound').querySelector('.emo').textContent = state.sound ? '🔊' : '🔇';
+  }
+
+  /* ---------- sizing ---------- */
+  function layout() {
+    const W = play.clientWidth, H = play.clientHeight;
+    const cell = Math.floor(Math.max(36, Math.min(96, (Math.min(W, H) - 28) / N)));
+    board.style.setProperty('--cell', cell + 'px');
+  }
+  new ResizeObserver(layout).observe(play);
+
+  /* ---------- confetti ---------- */
+  let confettiRaf = 0, confettiCanvas = null;
+  function startConfetti() {
+    if (reduceMotion) return;
+    stopConfetti();
+    const c = confettiCanvas = document.createElement('canvas');
+    c.className = 'confetti'; document.body.append(c);
+    const dpr = window.devicePixelRatio || 1;
+    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+    const cg = c.getContext('2d'); cg.scale(dpr, dpr);
+    const colors = ['#2b59c3', '#ff6b5b', '#2fb36f', '#ffd34e', '#a463f2'];
+    const bits = Array.from({ length: 140 }, () => ({
+      x: Math.random() * innerWidth, y: -20 - Math.random() * innerHeight * 0.6,
+      vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3,
+      r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.2,
+      w: 8 + Math.random() * 8, h: 5 + Math.random() * 6, color: colors[rand(colors.length)],
+    }));
+    const t0 = performance.now();
+    (function frame(now) {
+      cg.clearRect(0, 0, innerWidth, innerHeight);
+      for (const b of bits) {
+        b.x += b.vx; b.y += b.vy; b.r += b.vr;
+        cg.save(); cg.translate(b.x, b.y); cg.rotate(b.r); cg.fillStyle = b.color;
+        cg.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); cg.restore();
+      }
+      if (now - t0 < 4500) confettiRaf = requestAnimationFrame(frame); else stopConfetti();
+    })(t0);
+  }
+  function stopConfetti() {
+    cancelAnimationFrame(confettiRaf);
+    if (confettiCanvas) { confettiCanvas.remove(); confettiCanvas = null; }
+  }
+
+  newGame();
+})();
+</script>
+</body>
+</html>
