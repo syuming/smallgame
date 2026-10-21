@@ -47,7 +47,7 @@ smallgame/
 └── trace/                描描寫寫（同上結構）
 ```
 
-Android App 的打包設定（`package.json`、`capacitor.config.json`、`scripts/`、`android/`）說明見 [ANDROID.md](ANDROID.md)。
+Android App 的打包設定（`package.json`、`capacitor.config.json`、`scripts/`、`android/`）說明見 [ANDROID.md](ANDROID.md)。Google Play 商店頁面的說明文字、截圖與主題圖片在 [store/](store/README.md)。
 
 ## 翻翻樂記憶卡
 
