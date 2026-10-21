@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>描描寫寫</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="描描寫寫">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#ffd34e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans+TC:wght@700;900&display=swap">
+<link rel="stylesheet" href="../shared/kit.css">
+<style>
+  /* Layout: same sunny play mat; toolbar, a square writing pad with a four-quadrant guide (like a 田字格), and the progress tray. */
+  .app { height: 100%; display: flex; flex-direction: column; gap: 12px; padding-block: 12px; }
+  .chip .zy { font-family: var(--font-body); font-weight: 900; font-size: 1.5rem; line-height: 1; }
+  .chip .num { font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; line-height: 1; }
+
+  .desk { flex: 1; min-height: 0; display: grid; place-items: center; }
+  .pad {
+    width: var(--S); height: var(--S); padding: 12px; border-radius: 28px;
+    background: var(--paper); box-shadow: 0 8px 0 var(--sun-deep); position: relative;
+  }
+  .pad svg { width: 100%; height: 100%; display: block; touch-action: none; }
+  .pad.done svg { animation: bounce .6s ease; }
+  @keyframes bounce { 0%,100% { scale: 1; } 40% { scale: 1.06; } }
+  .say { position: absolute; left: 50%; top: -18px; translate: -50% 0; padding: 4px 16px; border-radius: 999px; background: var(--cobalt); color: var(--paper); font-weight: 900; font-size: 1.1rem; white-space: nowrap; }
+
+  .progress { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+  .slot {
+    width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.55);
+    border: 3px dashed var(--sun-deep); display: grid; place-items: center;
+    font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; color: var(--cobalt-deep);
+  }
+  .slot.full { background: var(--paper); border: 3px solid var(--leaf); animation: pop .4s ease; }
+  @media (max-width: 560px) { .slot { width: 40px; height: 40px; font-size: 1.2rem; } }
+  @media (prefers-reduced-motion: reduce) { .pad.done svg, .slot.full { animation: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <a class="chip" href="../" aria-label="回遊戲選單"><span class="emo">🏠</span></a>
+    <h1 class="brand">描描寫寫</h1>
+    <div class="group" id="sets" role="group" aria-label="選擇要描的字"></div>
+    <div class="group">
+      <button class="chip" id="redo" aria-label="這個字重描"><span class="emo">↩️</span></button>
+      <button class="chip" id="sound" aria-pressed="true" aria-label="聲音開關"><span class="emo">🔊</span></button>
+      <button class="chip" id="restart" aria-label="換一組字"><span class="emo">🔄</span></button>
+    </div>
+  </header>
+  <main class="desk" id="desk">
+    <div class="pad" id="pad"><span class="say" id="label"></span></div>
+  </main>
+  <footer class="progress" id="progress" aria-label="描好的字"></footer>
+</div>
+
+<div class="win" id="win" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="big">✏️</div>
+    <h2 id="winTitle">全部描好了！</h2>
+    <div class="stars" id="stars"></div>
+    <div class="actions">
+      <button class="btn" id="again">再描一組</button>
+      <button class="btn alt" id="other">換描注音 ➜</button>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/kit.js"></script>
+<script>
+(() => {
+  /* Each character is a list of strokes in writing order; each stroke is a polyline on a 100 × 100 grid, drawn
+     from its first point to its last. Numbers follow the common Taiwanese school forms (4 and 5 in two strokes).
+     Only zhuyin whose stroke order is unambiguous are included. */
+  const SETS = {
+    num: { label: '數字', icon: '<span class="num">123</span>', chars: {
+      '0': [[[50,14],[36,20],[29,36],[27,50],[29,66],[36,80],[50,86],[64,80],[71,66],[73,50],[71,36],[64,20],[50,14]]],
+      '1': [[[50,14],[50,86]]],
+      '2': [[[30,30],[36,19],[50,14],[64,19],[70,31],[66,45],[50,62],[30,85],[74,85]]],
+      '3': [[[31,22],[44,15],[60,16],[68,26],[66,38],[56,46],[46,48],[58,51],[69,60],[70,73],[62,83],[48,86],[32,80]]],
+      '4': [[[58,14],[26,62],[78,62]], [[60,36],[60,88]]],
+      '5': [[[36,15],[33,46],[46,41],[60,43],[69,53],[70,67],[63,80],[48,86],[31,81]], [[36,15],[70,15]]],
+      '6': [[[64,17],[48,24],[36,38],[30,56],[32,72],[42,84],[56,86],[67,78],[70,64],[64,53],[52,49],[40,53],[32,63]]],
+      '7': [[[28,17],[72,17],[44,87]]],
+      '8': [[[63,26],[56,16],[44,15],[36,24],[38,36],[50,46],[64,56],[68,70],[60,83],[48,86],[36,80],[32,68],[36,56],[50,46],[62,36],[63,26]]],
+      '9': [[[67,34],[60,19],[46,15],[35,22],[33,36],[40,46],[54,48],[66,40],[67,34],[66,58],[60,76],[48,86],[36,84]]],
+    } },
+    zy: { label: '注音', icon: '<span class="zy">ㄅ</span>', chars: {
+      'ㄅ': [[[46,14],[30,42]], [[40,30],[72,30],[70,66],[62,82],[52,78]]],
+      'ㄇ': [[[28,20],[28,84]], [[28,20],[72,20],[72,84]]],
+      'ㄈ': [[[28,22],[72,22]], [[28,22],[28,80],[74,80]]],
+      'ㄉ': [[[28,28],[72,28],[70,72],[60,86],[50,80]], [[52,28],[46,56],[26,82]]],
+      'ㄌ': [[[28,34],[74,34],[70,74],[60,86],[50,80]], [[52,14],[48,56],[26,84]]],
+      'ㄏ': [[[26,22],[76,22]], [[40,22],[38,56],[24,84]]],
+      'ㄗ': [[[30,22],[70,22],[70,56],[60,62]], [[38,22],[38,86]]],
+      'ㄙ': [[[52,16],[28,72],[72,64]], [[60,50],[76,80]]],
+      'ㄚ': [[[28,16],[48,46]], [[72,16],[52,46]], [[50,46],[50,86]]],
+      'ㄧ': [[[22,50],[78,50]]],
+      'ㄨ': [[[70,18],[28,82]], [[30,18],[74,82]]],
+    } },
+  };
+  const ROUND = 5, TOL = 14;   // characters per round; how far (grid units) the finger may stray from the line
+
+  const $ = id => document.getElementById(id);
+  const desk = $('desk'), pad = $('pad'), progress = $('progress');
+  const store = Kit.store('trace');
+  const state = {
+    set: SETS[store.get('set', 'num')] ? store.get('set', 'num') : 'num',
+    sound: store.get('sound', true) !== false,
+    queue: [], done: 0, ch: null, strokes: [], k: 0, t: 0, tracing: false, lock: false,
+  };
+  const tone = (...args) => { if (state.sound) Kit.tone(...args); };
+  const say = text => { if (state.sound) Kit.say(text, { rate: 0.85 }); };
+  const sfx = {
+    stroke: () => [659, 880].forEach((f, i) => tone(f, i * 0.07, 0.18, 'triangle', 0.12)),
+    char: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.09, 0.3, 'triangle', 0.14)),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.35, 'triangle', 0.15)),
+  };
+
+  /* ---------- geometry on a polyline ---------- */
+  function measure(pts) { const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return L; }
+  function pointAt(s, t) {
+    const { pts, L } = s; if (t <= 0) return pts[0];
+    for (let i = 1; i < pts.length; i++) if (t <= L[i]) { const f = (t - L[i - 1]) / (L[i] - L[i - 1] || 1); return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f]; }
+    return pts[pts.length - 1];
+  }
+  function partial(s, t) { const out = [s.pts[0]]; for (let i = 1; i < s.pts.length && s.L[i] < t; i++) out.push(s.pts[i]); out.push(pointAt(s, t)); return out; }
+  // Closest point on the stroke ahead of t (looking only a little way forward, so loops like 8 are followed in order).
+  function advance(s, t, p) {
+    let best = null;
+    for (let i = 1; i < s.pts.length; i++) {
+      if (s.L[i] < t) continue;
+      const a = s.pts[i - 1], b = s.pts[i], vx = b[0] - a[0], vy = b[1] - a[1], len2 = vx * vx + vy * vy || 1;
+      const f = Math.max(0, Math.min(1, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / len2));
+      const q = [a[0] + vx * f, a[1] + vy * f], d = Math.hypot(p[0] - q[0], p[1] - q[1]), at = s.L[i - 1] + f * Math.sqrt(len2);
+      if (at < t - 1 || at > t + 22) continue;
+      if (d < TOL && (!best || d < best.d)) best = { d, at };
+    }
+    return best ? Math.max(t, best.at) : t;
+  }
+
+  /* ---------- drawing the pad ---------- */
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  pad.append(svg);
+  const poly = pts => pts.map(p => p.join(',')).join(' ');
+  function el(tag, attrs, parent = svg) { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); parent.append(e); return e; }
+
+  function draw() {
+    svg.replaceChildren();
+    // four-quadrant writing guide
+    el('rect', { x: 2, y: 2, width: 96, height: 96, rx: 6, fill: '#fffaf0', stroke: '#f2c46b', 'stroke-width': 1 });
+    el('path', { d: 'M50 2 V98 M2 50 H98', stroke: '#f2c46b', 'stroke-width': 0.8, 'stroke-dasharray': '3 3' });
+    state.strokes.forEach((s, i) => {
+      const done = i < state.k, cur = i === state.k;
+      el('polyline', { points: poly(s.pts), fill: 'none', stroke: done ? '#2b59c3' : '#dfe3ea', 'stroke-width': 11, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+      if (cur) {
+        el('polyline', { points: poly(s.pts), fill: 'none', stroke: '#b8c0cc', 'stroke-width': 1.4, 'stroke-dasharray': '2.5 2.5', 'stroke-linecap': 'round' });
+        if (state.t > 0) el('polyline', { points: poly(partial(s, state.t)), fill: 'none', stroke: '#2fb36f', 'stroke-width': 11, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+        // direction arrow a little way along the stroke, and the start dot with the stroke number
+        const a = pointAt(s, Math.min(s.L.at(-1), state.t + 14)), b = pointAt(s, Math.min(s.L.at(-1), state.t + 20));
+        const ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+        if (s.L.at(-1) - state.t > 18) el('path', { d: 'M-4 -4 L4 0 L-4 4 Z', fill: '#ff6b5b', transform: `translate(${b[0]} ${b[1]}) rotate(${ang})` });
+        const p0 = pointAt(s, state.t);
+        el('circle', { cx: p0[0], cy: p0[1], r: 6.5, fill: '#2fb36f', stroke: '#fff', 'stroke-width': 1.6, class: 'start' });
+        el('text', { x: p0[0], y: p0[1] + 2.6, 'text-anchor': 'middle', 'font-size': 7.5, 'font-weight': 900, fill: '#fff', 'font-family': 'Baloo 2, sans-serif' }).textContent = i + 1;
+      }
+    });
+  }
+
+  /* ---------- input ---------- */
+  function toGrid(e) {
+    const r = svg.getBoundingClientRect();
+    return [(e.clientX - r.left) / r.width * 100, (e.clientY - r.top) / r.height * 100];
+  }
+  svg.addEventListener('pointerdown', e => {
+    if (state.lock || !state.strokes[state.k]) return;
+    Kit.audio();
+    const p = toGrid(e), s = state.strokes[state.k], here = pointAt(s, state.t);
+    // start where the stroke (or the bit already traced) ends
+    if (Math.hypot(p[0] - here[0], p[1] - here[1]) > TOL * 1.3) { tone(300, 0, 0.12, 'sine', 0.06); return; }
+    state.tracing = true;
+    try { svg.setPointerCapture(e.pointerId); } catch {}
+  });
+  svg.addEventListener('pointermove', e => {
+    if (!state.tracing) return;
+    const s = state.strokes[state.k], t = advance(s, state.t, toGrid(e));
+    if (t !== state.t) { state.t = t; if (state.t >= s.L.at(-1) - 3) finishStroke(); else draw(); }
+  });
+  const lift = () => { state.tracing = false; };
+  svg.addEventListener('pointerup', lift); svg.addEventListener('pointercancel', lift);
+
+  function finishStroke() {
+    state.tracing = false; state.k++; state.t = 0; sfx.stroke(); draw();
+    if (state.k >= state.strokes.length) finishChar();
+  }
+  function finishChar() {
+    state.lock = true;
+    pad.classList.remove('done'); void pad.offsetWidth; pad.classList.add('done');
+    sfx.char(); say(`好棒！這是 ${state.ch}`);
+    const slot = progress.children[state.done]; slot.textContent = state.ch; slot.classList.add('full');
+    state.done++;
+    setTimeout(() => { state.lock = false; if (state.done >= ROUND) win(); else next(); }, 1600);
+  }
+
+  /* ---------- round flow ---------- */
+  function newGame() {
+    $('win').hidden = true; Kit.confetti.stop();
+    const chars = Object.keys(SETS[state.set].chars).sort(() => Math.random() - 0.5);
+    Object.assign(state, { queue: chars.slice(0, ROUND), done: 0, lock: false });
+    progress.innerHTML = '';
+    for (let i = 0; i < ROUND; i++) { const s = document.createElement('div'); s.className = 'slot'; progress.append(s); }
+    $('other').textContent = state.set === 'num' ? '換描注音 ➜' : '換描數字 ➜';
+    syncToolbar(); next();
+  }
+  function next() {
+    state.ch = state.queue[state.done];
+    load();
+    say(`描描看，${state.ch}`);
+  }
+  function load() {
+    state.strokes = SETS[state.set].chars[state.ch].map(pts => ({ pts, L: measure(pts) }));
+    Object.assign(state, { k: 0, t: 0, tracing: false });
+    $('label').textContent = `${state.ch}・${state.strokes.length} 筆`;
+    pad.classList.remove('done');
+    draw();
+  }
+  function win() {
+    $('stars').innerHTML = Kit.stars(3);
+    $('win').hidden = false;
+    sfx.win(); say('全部描好了！好棒！');
+    Kit.confetti.start();
+    $('again').focus();
+  }
+  $('again').addEventListener('click', newGame);
+  $('other').addEventListener('click', () => { state.set = state.set === 'num' ? 'zy' : 'num'; store.set('set', state.set); newGame(); });
+  $('redo').addEventListener('click', () => { if (!state.lock) load(); });
+
+  /* ---------- toolbar ---------- */
+  for (const [key, st] of Object.entries(SETS)) {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.dataset.key = key; b.setAttribute('aria-label', st.label);
+    b.innerHTML = `${st.icon}<span class="txt">${st.label}</span>`;
+    b.addEventListener('click', () => { state.set = key; store.set('set', key); newGame(); });
+    $('sets').append(b);
+  }
+  $('sound').addEventListener('click', () => {
+    state.sound = !state.sound; store.set('sound', state.sound);
+    if (!state.sound) Kit.hush();
+    syncToolbar();
+  });
+  $('restart').addEventListener('click', newGame);
+  function syncToolbar() {
+    [...$('sets').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.key === state.set));
+    $('sound').setAttribute('aria-pressed', state.sound);
+    $('sound').querySelector('.emo').textContent = state.sound ? '🔊' : '🔇';
+  }
+
+  function layout() {
+    const S = Math.floor(Math.max(220, Math.min(desk.clientWidth - 8, desk.clientHeight - 24, 640)));
+    desk.style.setProperty('--S', S + 'px');
+  }
+  new ResizeObserver(layout).observe(desk);
+
+  newGame();
+})();
+</script>
+</body>
+</html>

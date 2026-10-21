@@ -103,6 +103,10 @@
   .art.run .e { position: absolute; font-family: var(--emoji); line-height: 1; }
   .art.count { background: var(--paper); border-bottom: 3px dashed var(--sun-deep); flex-direction: column; gap: 4px; }
   .art.count .row { font-family: var(--emoji); font-size: 2rem; letter-spacing: -2px; }
+  .art.paint { background: var(--paper); border-bottom: 3px dashed var(--sun-deep); }
+  .art.paint svg { width: 46%; height: auto; }
+  .art.trace { background: #fffaf0; border-bottom: 3px dashed var(--sun-deep); }
+  .art.trace svg { width: 44%; height: auto; }
   .art.count .n { font-family: var(--font-display); font-weight: 800; font-size: 2.6rem; color: var(--cobalt-deep); line-height: 1; }
   .m3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 58%; }
   .m3 i { aspect-ratio: 1; border-radius: 22%; background: var(--t); display: grid; place-items: center; font-style: normal; font-family: var(--emoji); font-size: 1.5rem; }
@@ -158,7 +162,7 @@
     </a>
     <a class="tile" href="hole/">
       <div class="art hole" aria-hidden="true"><span class="near" style="left:12%;top:14%;font-size:1.8rem">🌸</span><span class="near" style="right:10%;top:10%;font-size:2.8rem">🏠</span><span class="near" style="right:16%;bottom:10%;font-size:2rem">🚗</span><span class="pit"><span>🍎</span></span></div>
-      <div class="info"><span class="name">洞洞吃光光</span><span class="desc">拖著洞洞，把東西吃光光</span></div>
+      <div class="info"><span class="name">洞洞吃光光</span><span class="desc">按住畫面滑動，帶洞洞吃光光</span></div>
     </a>
     <a class="tile" href="match/">
       <div class="art match" aria-hidden="true"><span class="m3"><i style="--t:#ffd3d3">🍎</i><i style="--t:#e8d6ff">🍇</i><i style="--t:#d3f3c4">🍏</i><i class="on" style="--t:#fff1a6">🍋</i><i class="on" style="--t:#fff1a6">🍋</i><i class="on" style="--t:#fff1a6">🍋</i><i style="--t:#d2defc">🫐</i><i style="--t:#ffd3d3">🍎</i><i style="--t:#e8d6ff">🍇</i></span></div>
@@ -171,6 +175,14 @@
     <a class="tile" href="count/">
       <div class="art count" aria-hidden="true"><span class="row">🍎🍎🍎</span><span class="n">1 2 3</span></div>
       <div class="info"><span class="name">數一數</span><span class="desc">數數看有幾個，還有加法</span></div>
+    </a>
+    <a class="tile" href="paint/">
+      <div class="art paint" aria-hidden="true"><svg viewBox="0 0 400 400"><g stroke="#1e2a4a" stroke-width="12" stroke-linejoin="round"><polygon points="92,170 112,40 190,112" fill="#ff9f43"/><polygon points="308,170 288,40 210,112" fill="#ffffff"/><circle cx="200" cy="222" r="128" fill="#ffd93d"/><circle cx="120" cy="268" r="20" fill="#ff8fc8"/><circle cx="280" cy="268" r="20" fill="#ffffff"/><ellipse cx="152" cy="205" rx="26" ry="32" fill="#fff"/><ellipse cx="248" cy="205" rx="26" ry="32" fill="#fff"/><polygon points="186,250 214,250 200,268" fill="#ff5a5a"/></g><circle cx="156" cy="212" r="12" fill="#1e2a4a"/><circle cx="252" cy="212" r="12" fill="#1e2a4a"/></svg></div>
+      <div class="info"><span class="name">著色本</span><span class="desc">選顏色，點一下就塗滿</span></div>
+    </a>
+    <a class="tile" href="trace/">
+      <div class="art trace" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M50 2 V98 M2 50 H98" stroke="#f2c46b" stroke-width="1.5" stroke-dasharray="4 4"/><polyline points="28,20 28,84" fill="none" stroke="#2b59c3" stroke-width="11" stroke-linecap="round"/><polyline points="28,20 72,20 72,84" fill="none" stroke="#dfe3ea" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><polyline points="28,20 72,20 72,50" fill="none" stroke="#2fb36f" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><circle cx="72" cy="50" r="7" fill="#2fb36f" stroke="#fff" stroke-width="2"/></svg></div>
+      <div class="info"><span class="name">描描寫寫</span><span class="desc">跟著筆順描數字和注音</span></div>
     </a>
   </main>
 </div>

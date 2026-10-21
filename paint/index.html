@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>著色本</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="著色本">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#ffd34e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans+TC:wght@700;900&display=swap">
+<link rel="stylesheet" href="../shared/kit.css">
+<style>
+  /* Layout: same sunny play mat; toolbar with the six pictures, then the drawing on a white sheet beside a palette of big paint pots (palette goes underneath on tall screens). */
+  .app { height: 100%; display: flex; flex-direction: column; gap: 12px; padding-block: 12px; }
+  @media (max-width: 1100px) { .chip .txt { display: none; } }
+
+  .studio { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 18px; }
+  .studio.tall { flex-direction: column; }
+  .sheet {
+    width: var(--S); height: var(--S); flex: none; padding: 10px; border-radius: 26px;
+    background: var(--paper); box-shadow: 0 8px 0 var(--sun-deep);
+  }
+  .sheet svg { width: 100%; height: 100%; display: block; touch-action: manipulation; }
+  .sheet .region { cursor: pointer; transition: fill .15s; stroke: #1e2a4a; stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; }
+  .sheet .ink { fill: #1e2a4a; stroke: none; pointer-events: none; }
+  .sheet .line { fill: none; stroke: #1e2a4a; stroke-width: 6; stroke-linecap: round; pointer-events: none; }
+  .sheet.done svg { animation: shine 1s ease; }
+  @keyframes shine { 0%, 100% { filter: none; } 40% { filter: brightness(1.15) drop-shadow(0 0 12px #fff); } }
+
+  .palette { display: grid; grid-template-columns: repeat(var(--pc, 2), var(--pot)); gap: 10px; padding: 12px; border-radius: 24px; background: var(--paper); box-shadow: 0 6px 0 var(--sun-deep); }
+  .pot {
+    width: var(--pot); height: var(--pot); border-radius: 50%; border: 4px solid rgba(30,42,74,.15); cursor: pointer; padding: 0;
+    background: var(--c); transition: transform .12s;
+  }
+  .pot[aria-pressed="true"] { border-color: var(--ink); transform: scale(1.12); box-shadow: 0 0 0 4px var(--paper), 0 0 0 7px var(--cobalt); }
+  .pot.eraser { background: #fff; display: grid; place-items: center; font-family: var(--emoji); font-size: calc(var(--pot) * 0.5); }
+  .group { flex-wrap: wrap; }
+  @media (prefers-reduced-motion: reduce) { .sheet.done svg { animation: none; } .region { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <a class="chip" href="../" aria-label="回遊戲選單"><span class="emo">🏠</span></a>
+    <h1 class="brand">著色本</h1>
+    <div class="group" id="pics" role="group" aria-label="選擇圖畫"></div>
+    <div class="group">
+      <button class="chip" id="undo" aria-label="上一步"><span class="emo">↩️</span></button>
+      <button class="chip" id="sound" aria-pressed="true" aria-label="聲音開關"><span class="emo">🔊</span></button>
+      <button class="chip" id="clear" aria-label="全部擦掉重畫"><span class="emo">🗑️</span></button>
+    </div>
+  </header>
+  <main class="studio" id="studio">
+    <div class="sheet" id="sheet"></div>
+    <div class="palette" id="palette" role="group" aria-label="選顏色"></div>
+  </main>
+</div>
+
+<div class="win" id="win" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="big">🎨</div>
+    <h2 id="winTitle">好漂亮！塗好了！</h2>
+    <div class="stars" id="stars"></div>
+    <div class="actions">
+      <button class="btn" id="keep">繼續塗</button>
+      <button class="btn alt" id="next">畫下一張 ➜</button>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/kit.js"></script>
+<script>
+(() => {
+  const COLORS = ['#ff5a5a', '#ff9f43', '#ffd93d', '#6ad66a', '#2fb36f', '#5ec8f5', '#2f7fe0', '#9b6bff', '#ff8fc8', '#a8724a', '#8d99a6', '#1e2a4a'];
+  const WHITE = '#ffffff';
+  // Pictures on a 400 × 400 sheet. "r" shapes can be coloured; "ink" shapes are fixed dark details; "line" is outline only.
+  const PICTURES = {
+    cat: { label: '小貓', icon: '🐱', parts: [
+      ['r', 'rect', { x: 8, y: 8, width: 384, height: 384, rx: 30 }],
+      ['r', 'polygon', { points: '92,170 112,40 190,112' }], ['r', 'polygon', { points: '308,170 288,40 210,112' }],
+      ['r', 'circle', { cx: 200, cy: 222, r: 128 }],
+      ['r', 'polygon', { points: '116,140 124,78 168,118' }], ['r', 'polygon', { points: '284,140 276,78 232,118' }],
+      ['r', 'ellipse', { cx: 152, cy: 205, rx: 26, ry: 32 }], ['r', 'ellipse', { cx: 248, cy: 205, rx: 26, ry: 32 }],
+      ['ink', 'circle', { cx: 156, cy: 212, r: 12 }], ['ink', 'circle', { cx: 252, cy: 212, r: 12 }],
+      ['r', 'polygon', { points: '186,250 214,250 200,268' }],
+      ['r', 'circle', { cx: 120, cy: 268, r: 20 }], ['r', 'circle', { cx: 280, cy: 268, r: 20 }],
+      ['line', 'path', { d: 'M200 268 Q200 290 178 292 M200 268 Q200 290 222 292' }],
+      ['line', 'path', { d: 'M96 240 L36 226 M96 256 L34 262 M304 240 L364 226 M304 256 L366 262' }],
+    ] },
+    fish: { label: '小魚', icon: '🐟', parts: [
+      ['r', 'rect', { x: 8, y: 8, width: 384, height: 384, rx: 30 }],
+      ['r', 'path', { d: 'M8 330 Q 60 300 110 330 T 210 330 T 310 330 T 392 330 L392 362 Q392 392 362 392 L38 392 Q8 392 8 362 Z' }],
+      ['r', 'polygon', { points: '286,200 372,128 360,200 372,272' }],
+      ['r', 'ellipse', { cx: 186, cy: 200, rx: 120, ry: 82 }],
+      ['r', 'path', { d: 'M170 122 Q 200 70 250 110 Q 220 120 210 140 Z' }],
+      ['r', 'path', { d: 'M170 278 Q 200 320 240 286 Q 214 280 206 262 Z' }],
+      ['line', 'path', { d: 'M196 128 Q 160 200 196 272' }],
+      ['r', 'circle', { cx: 120, cy: 182, r: 22 }], ['ink', 'circle', { cx: 116, cy: 182, r: 10 }],
+      ['line', 'path', { d: 'M88 222 Q 104 236 122 226' }],
+      ['r', 'circle', { cx: 70, cy: 110, r: 16 }], ['r', 'circle', { cx: 52, cy: 66, r: 11 }], ['r', 'circle', { cx: 300, cy: 80, r: 14 }],
+    ] },
+    car: { label: '汽車', icon: '🚗', parts: [
+      ['r', 'rect', { x: 8, y: 8, width: 384, height: 384, rx: 30 }],
+      ['r', 'rect', { x: 8, y: 300, width: 384, height: 92, rx: 0 }],
+      ['r', 'circle', { cx: 330, cy: 76, r: 40 }],
+      ['r', 'path', { d: 'M40 270 L40 214 Q40 196 60 192 L110 186 L150 126 Q158 116 172 116 L264 116 Q278 116 288 128 L332 186 Q368 192 368 220 L368 270 Z' }],
+      ['r', 'path', { d: 'M162 136 L130 186 L204 186 L204 136 Z' }], ['r', 'path', { d: 'M222 136 L222 186 L304 186 L272 140 Q268 136 262 136 Z' }],
+      ['r', 'rect', { x: 340, y: 208, width: 28, height: 18, rx: 6 }],
+      ['r', 'circle', { cx: 114, cy: 272, r: 38 }], ['r', 'circle', { cx: 296, cy: 272, r: 38 }],
+      ['r', 'circle', { cx: 114, cy: 272, r: 15 }], ['r', 'circle', { cx: 296, cy: 272, r: 15 }],
+    ] },
+    house: { label: '房子', icon: '🏠', parts: [
+      ['r', 'rect', { x: 8, y: 8, width: 384, height: 384, rx: 30 }],
+      ['r', 'rect', { x: 8, y: 318, width: 384, height: 74, rx: 0 }],
+      ['r', 'circle', { cx: 70, cy: 72, r: 38 }],
+      ['r', 'rect', { x: 264, y: 70, width: 34, height: 70 }],
+      ['r', 'rect', { x: 96, y: 186, width: 208, height: 136 }],
+      ['r', 'polygon', { points: '72,192 200,84 328,192' }],
+      ['r', 'rect', { x: 176, y: 236, width: 50, height: 86, rx: 6 }],
+      ['r', 'rect', { x: 116, y: 210, width: 44, height: 40, rx: 4 }], ['r', 'rect', { x: 242, y: 210, width: 44, height: 40, rx: 4 }],
+      ['r', 'ellipse', { cx: 340, cy: 312, rx: 34, ry: 24 }],
+    ] },
+    flower: { label: '花朵', icon: '🌸', parts: [
+      ['r', 'rect', { x: 8, y: 8, width: 384, height: 384, rx: 30 }],
+      ['r', 'rect', { x: 190, y: 190, width: 20, height: 140 }],
+      ['r', 'ellipse', { cx: 150, cy: 270, rx: 42, ry: 18, transform: 'rotate(-30 150 270)' }],
+      ['r', 'ellipse', { cx: 250, cy: 250, rx: 42, ry: 18, transform: 'rotate(30 250 250)' }],
+      ...[0, 60, 120, 180, 240, 300].map(a => ['r', 'ellipse', { cx: 200, cy: 98, rx: 34, ry: 52, transform: `rotate(${a} 200 160)` }]),
+      ['r', 'circle', { cx: 200, cy: 160, r: 38 }],
+      ['r', 'polygon', { points: '128,316 272,316 254,388 146,388' }],
+    ] },
+    rocket: { label: '火箭', icon: '🚀', parts: [
+      ['r', 'rect', { x: 8, y: 8, width: 384, height: 384, rx: 30 }],
+      ['r', 'polygon', { points: '62,60 70,84 94,84 74,98 82,122 62,108 42,122 50,98 30,84 54,84' }],
+      ['r', 'polygon', { points: '330,250 336,268 354,268 340,278 346,296 330,286 314,296 320,278 306,268 324,268' }],
+      ['r', 'circle', { cx: 330, cy: 90, r: 34 }],
+      ['r', 'polygon', { points: '170,300 200,384 230,300' }],
+      ['r', 'polygon', { points: '160,230 112,300 160,288' }], ['r', 'polygon', { points: '240,230 288,300 240,288' }],
+      ['r', 'path', { d: 'M200 40 Q 262 110 244 300 L156 300 Q 138 110 200 40 Z' }],
+      ['r', 'circle', { cx: 200, cy: 160, r: 28 }],
+      ['r', 'rect', { x: 186, y: 230, width: 28, height: 70 }],
+    ] },
+  };
+  const PIC_KEYS = Object.keys(PICTURES);
+
+  const $ = id => document.getElementById(id);
+  const studio = $('studio'), sheet = $('sheet'), palette = $('palette');
+  const store = Kit.store('paint');
+  const state = {
+    pic: PICTURES[store.get('pic', 'cat')] ? store.get('pic', 'cat') : 'cat',
+    sound: store.get('sound', true) !== false,
+    color: COLORS[0], regions: [], history: [], celebrated: false,
+  };
+  const tone = (...args) => { if (state.sound) Kit.tone(...args); };
+  const say = text => { if (state.sound) Kit.say(text); };
+  const sfx = {
+    fill: () => { tone(500 + Math.random() * 300, 0, 0.12, 'triangle', 0.1); },
+    pick: () => tone(880, 0, 0.08, 'sine', 0.08),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.35, 'triangle', 0.15)),
+  };
+
+  /* ---------- drawing the picture ---------- */
+  const NS = 'http://www.w3.org/2000/svg';
+  function render() {
+    const pic = PICTURES[state.pic], saved = store.get('fills.' + state.pic, []);
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 400 400'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', pic.label + '的著色圖');
+    state.regions = [];
+    for (const [kind, tag, attrs] of pic.parts) {
+      const el = document.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      if (kind === 'r') {
+        const i = state.regions.length;
+        el.setAttribute('class', 'region');
+        el.setAttribute('fill', saved[i] || WHITE);
+        el.addEventListener('click', () => paint(i));
+        state.regions.push(el);
+      } else el.setAttribute('class', kind);
+      svg.append(el);
+    }
+    sheet.replaceChildren(svg);
+    sheet.classList.remove('done');
+    state.history = [];
+    state.celebrated = isDone();
+    syncToolbar();
+  }
+  const fills = () => state.regions.map(el => el.getAttribute('fill'));
+  const isDone = () => state.regions.every(el => el.getAttribute('fill') !== WHITE);
+
+  function paint(i) {
+    const el = state.regions[i], before = el.getAttribute('fill');
+    Kit.audio();
+    if (before === state.color) return;
+    state.history.push([i, before]);
+    el.setAttribute('fill', state.color);
+    sfx.fill();
+    store.set('fills.' + state.pic, fills());
+    if (!state.celebrated && isDone()) celebrate();
+  }
+  function celebrate() {
+    state.celebrated = true;
+    sheet.classList.add('done');
+    setTimeout(() => {
+      $('stars').innerHTML = Kit.stars(3);
+      $('winTitle').textContent = `好漂亮！${PICTURES[state.pic].label}塗好了！`;
+      $('win').hidden = false;
+      sfx.win(); say('好漂亮！');
+      Kit.confetti.start(COLORS);
+      $('keep').focus();
+    }, 700);
+  }
+  $('keep').addEventListener('click', () => { $('win').hidden = true; Kit.confetti.stop(); });
+  $('next').addEventListener('click', () => {
+    $('win').hidden = true; Kit.confetti.stop();
+    state.pic = PIC_KEYS[(PIC_KEYS.indexOf(state.pic) + 1) % PIC_KEYS.length]; store.set('pic', state.pic); render();
+  });
+
+  /* ---------- palette ---------- */
+  function buildPalette() {
+    palette.innerHTML = '';
+    for (const c of [...COLORS, WHITE]) {
+      const b = document.createElement('button');
+      b.className = 'pot' + (c === WHITE ? ' eraser' : ''); b.style.setProperty('--c', c);
+      b.setAttribute('aria-label', c === WHITE ? '橡皮擦' : '顏色 ' + c);
+      if (c === WHITE) b.textContent = '🧽';
+      b.addEventListener('click', () => { state.color = c; sfx.pick(); syncPalette(); });
+      palette.append(b);
+    }
+    syncPalette();
+  }
+  function syncPalette() {
+    [...palette.children].forEach((b, i) => b.setAttribute('aria-pressed', [...COLORS, WHITE][i] === state.color));
+  }
+
+  /* ---------- toolbar ---------- */
+  for (const key of PIC_KEYS) {
+    const p = PICTURES[key], b = document.createElement('button');
+    b.className = 'chip'; b.dataset.key = key; b.setAttribute('aria-label', p.label);
+    b.innerHTML = `<span class="emo">${p.icon}</span><span class="txt">${p.label}</span>`;
+    b.addEventListener('click', () => { state.pic = key; store.set('pic', key); render(); });
+    $('pics').append(b);
+  }
+  $('undo').addEventListener('click', () => {
+    const last = state.history.pop(); if (!last) return;
+    state.regions[last[0]].setAttribute('fill', last[1]);
+    store.set('fills.' + state.pic, fills());
+    if (!isDone()) { state.celebrated = false; sheet.classList.remove('done'); }
+  });
+  // Wipe the picture. A second tap within 3 s is needed, so a stray tap can't erase a finished drawing.
+  let clearArmed = 0;
+  $('clear').addEventListener('click', () => {
+    if (Date.now() - clearArmed > 3000) {
+      clearArmed = Date.now(); $('clear').querySelector('.emo').textContent = '❓';
+      say('再按一次就會全部擦掉');
+      setTimeout(() => { $('clear').querySelector('.emo').textContent = '🗑️'; }, 3000);
+      return;
+    }
+    clearArmed = 0; $('clear').querySelector('.emo').textContent = '🗑️';
+    store.set('fills.' + state.pic, []); render();
+  });
+  $('sound').addEventListener('click', () => {
+    state.sound = !state.sound; store.set('sound', state.sound);
+    if (!state.sound) Kit.hush();
+    syncToolbar();
+  });
+  function syncToolbar() {
+    [...$('pics').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.key === state.pic));
+    $('sound').setAttribute('aria-pressed', state.sound);
+    $('sound').querySelector('.emo').textContent = state.sound ? '🔊' : '🔇';
+  }
+
+  /* ---------- sizing: the biggest sheet that leaves room for the palette ---------- */
+  function layout() {
+    const W = studio.clientWidth, H = studio.clientHeight, n = COLORS.length + 1;
+    let best = null;
+    for (const tall of [false, true]) {
+      for (const pc of tall ? [7, 5] : [2, 3]) {
+        const rows = Math.ceil(n / pc);
+        const pot = Math.max(30, Math.min(64, tall ? (W - 24 - (pc - 1) * 10) / pc : (H - 24 - (rows - 1) * 10) / rows));
+        const palW = pc * pot + (pc - 1) * 10 + 24, palH = rows * pot + (rows - 1) * 10 + 24;
+        const S = Math.floor(Math.min(tall ? W : W - palW - 18, tall ? H - palH - 18 : H) - 4);
+        if (S > 0 && (!best || S > best.S)) best = { S, tall, pc, pot };
+      }
+    }
+    studio.classList.toggle('tall', best.tall);
+    studio.style.setProperty('--S', Math.min(best.S, 720) + 'px');
+    palette.style.setProperty('--pc', best.pc); palette.style.setProperty('--pot', Math.floor(best.pot) + 'px');
+  }
+  new ResizeObserver(layout).observe(studio);
+
+  buildPalette();
+  render();
+})();
+</script>
+</body>
+</html>
