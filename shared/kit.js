@@ -31,8 +31,15 @@ window.Kit = (() => {
     o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
   }
 
+  // Inside the Android app (Capacitor) the WebView has no speechSynthesis, so speech goes to the native
+  // TextToSpeech plugin through the bridge Capacitor injects; on the web this is null and nothing changes.
+  const nativeTTS = window.Capacitor?.isNativePlatform?.() && window.Capacitor.nativePromise
+    ? (method, opts = {}) => window.Capacitor.nativePromise('TextToSpeech', method, opts).catch(() => {})
+    : null;
+
   // Speak Traditional Chinese with a Taiwanese voice when the device has one.
   function say(text, { rate = 0.9, pitch = 1.2 } = {}) {
+    if (nativeTTS) { nativeTTS('stop').then(() => nativeTTS('speak', { text, lang: 'zh-TW', rate, pitch })); return; }
     if (!('speechSynthesis' in window)) return;
     try {
       speechSynthesis.cancel();
@@ -43,7 +50,10 @@ window.Kit = (() => {
       speechSynthesis.speak(u);
     } catch {}
   }
-  function hush() { try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch {} }
+  function hush() {
+    if (nativeTTS) { nativeTTS('stop'); return; }
+    try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch {}
+  }
 
   const confetti = (() => {
     const DEFAULT = ['#2b59c3', '#ff6b5b', '#2fb36f', '#ffd34e', '#a463f2'];

@@ -1,0 +1,6 @@
+node_modules/
+www/
+# Android signing keys must never be committed; keep them backed up elsewhere.
+*.jks
+*.keystore
+keystore.properties
