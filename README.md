@@ -26,6 +26,7 @@
 ```
 smallgame/
 ├── index.html            遊戲選單首頁
+├── privacy.html          隱私權政策（Google Play 上架用）
 ├── manifest.webmanifest  首頁的「加入主畫面」設定
 ├── icons/                首頁圖示
 ├── shared/               所有遊戲共用的樣式與功能（kit.css、kit.js）
@@ -45,6 +46,8 @@ smallgame/
 ├── paint/                著色本（同上結構）
 └── trace/                描描寫寫（同上結構）
 ```
+
+Android App 的打包設定（`package.json`、`capacitor.config.json`、`scripts/`、`android/`）說明見 [ANDROID.md](ANDROID.md)。
 
 ## 翻翻樂記憶卡
 
@@ -149,14 +152,14 @@ smallgame/
 3. 遊戲工具列放一個連到 `../` 的 🏠 按鈕，讓全螢幕模式下也能回到選單。
 4. 設定用 `Kit.store('遊戲前綴')` 儲存，避免與其他遊戲衝突（翻翻樂使用 `flipflip`）。
 5. 在根目錄 `index.html` 的遊戲選單加一張卡片，並更新上方的遊戲列表。
-6. 合併到 `main` 後，GitHub Pages 會自動部署。
+6. 合併到 `main` 後，GitHub Pages 會自動部署；Android App 需要另外執行 `npm run sync` 重新打包（見 [ANDROID.md](ANDROID.md)）。
 
 ### 共用檔案（`shared/`）
 
 | 檔案 | 內容 |
 |------|------|
 | `kit.css` | 配色變數、黃色底圖、工具列按鈕（`.chip`）、勝利畫面（`.win`／`.panel`）、彩帶 |
-| `kit.js` | `Kit.store(prefix)` 設定儲存、`Kit.tone()` 音效、`Kit.say()` 中文語音、`Kit.hush()` 停止語音、`Kit.confetti.start()/stop()` 彩帶、`Kit.stars(n)` 星星、`Kit.reduceMotion` |
+| `kit.js` | `Kit.store(prefix)` 設定儲存、`Kit.tone()` 音效、`Kit.say()` 中文語音（App 內改用原生語音）、`Kit.hush()` 停止語音（關閉音效時請呼叫它，不要直接用 `speechSynthesis`）、`Kit.confetti.start()/stop()` 彩帶、`Kit.stars(n)` 星星、`Kit.reduceMotion` |
 
 遊戲自己的樣式寫在 `kit.css` 之後，可以覆蓋任何共用樣式；修改共用檔案會影響所有遊戲，改完請把每款都試玩一次。
 

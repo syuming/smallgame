@@ -1,0 +1,8 @@
+{
+  "appId": "io.github.syuming.smallgame",
+  "appName": "小小遊戲屋",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#ffd34e"
+  }
+}

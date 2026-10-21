@@ -509,7 +509,7 @@
   });
   $('sound').addEventListener('click', () => {
     state.sound = !state.sound; store.set('sound', state.sound);
-    if (!state.sound && 'speechSynthesis' in window) speechSynthesis.cancel();
+    if (!state.sound) Kit.hush();
     syncToolbar();
   });
   $('restart').addEventListener('click', () => { if (!state.busy) newGame(); });
