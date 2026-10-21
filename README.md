@@ -171,3 +171,7 @@ Android App 的打包設定（`package.json`、`capacitor.config.json`、`script
 - **Android（Chrome）**：右上角選單 →「加到主畫面」／「安裝應用程式」
 
 可以只加入遊戲選單首頁，也可以把單一遊戲的網址各自加成一個圖示。
+
+## 授權
+
+© 2026 syuming，保留所有權利。歡迎免費遊玩，但未經同意不得複製、修改或上架至應用程式商店，詳見 [LICENSE](LICENSE)。

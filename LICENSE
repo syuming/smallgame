@@ -1,0 +1,18 @@
+Copyright (c) 2026 syuming. All rights reserved.
+
+小小遊戲屋（Little Game House）的程式碼、圖像、文字及其他內容，著作權均屬 syuming 所有。
+
+歡迎透過 https://syuming.github.io/smallgame/ 或官方 Google Play App 免費遊玩。
+未經書面同意，不得複製、修改、散布本專案內容，亦不得以本專案或其衍生作品
+發布、上架至任何應用程式商店或網站。
+
+The source code, graphics, text and other content of Little Game House (小小遊戲屋)
+are the property of syuming.
+
+You are welcome to play the games for free at https://syuming.github.io/smallgame/
+or through the official Google Play app. Without prior written permission, you may
+not copy, modify or distribute any part of this project, nor publish this project or
+any derivative of it on any app store or website.
+
+Third-party components bundled in the Android app (Capacitor and its plugins) remain
+under their own licenses, which are included in their packages.
