@@ -20,9 +20,12 @@ rmSync(out, { recursive: true, force: true });
 for (const name of entries) cpSync(join(root, name), join(out, name), { recursive: true });
 
 const FONT_LINK = /^[ \t]*<link[^>]+(fonts\.googleapis\.com|fonts\.gstatic\.com)[^>]*>\r?\n/gm;
+// Capacitor's local server answers every extension-less path (such as memory/ or ../) with the menu's index.html
+// instead of that folder's, so folder links are spelled out as .../index.html in the app copy.
+const FOLDER_LINK = /href="((?![a-z]+:|\/|#)[^"]*\/)"/g;
 for (const page of ['index.html', 'privacy.html', ...games.map(g => join(g, 'index.html'))]) {
   const file = join(out, page);
-  writeFileSync(file, readFileSync(file, 'utf8').replace(FONT_LINK, ''));
+  writeFileSync(file, readFileSync(file, 'utf8').replace(FONT_LINK, '').replace(FOLDER_LINK, 'href="$1index.html"'));
 }
 
 console.log(`www/ ready: menu + ${games.length} games (${games.join(', ')})`);
