@@ -15,63 +15,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans+TC:wght@700;900&display=swap">
+<link rel="stylesheet" href="../shared/kit.css">
 <style>
   /* Layout: same sunny play mat; toolbar, then the puzzle board and a tray of loose pieces side by side (stacked on tall screens). */
-  :root {
-    --sun: #ffd34e;
-    --sun-deep: #f5b82e;
-    --cobalt: #2b59c3;
-    --cobalt-deep: #1c3f94;
-    --paper: #ffffff;
-    --ink: #1e2a4a;
-    --leaf: #2fb36f;
-    --coral: #ff6b5b;
-    --font-display: "Baloo 2", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
-    --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
-    --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-    color-scheme: light;
-  }
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }
-  html, body { height: 100%; }
-  body {
-    margin: 0;
-    background-color: var(--sun);
-    background-image: radial-gradient(var(--sun-deep) 2px, transparent 2.5px);
-    background-size: 28px 28px;
-    color: var(--ink);
-    font-family: var(--font-body);
-    padding-left: max(16px, env(safe-area-inset-left, 0px));
-    padding-right: max(16px, env(safe-area-inset-right, 0px));
-    overflow: hidden;
-    -webkit-user-select: none; user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-  }
-  button { font: inherit; color: inherit; touch-action: manipulation; }
-  a.chip { color: inherit; text-decoration: none; }
-  button:focus-visible, a:focus-visible { outline: 4px solid var(--cobalt); outline-offset: 3px; }
-
   .app { height: 100%; display: flex; flex-direction: column; gap: 12px; padding-block: 12px; }
 
   /* ---------- toolbar (shared look) ---------- */
-  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
-  .brand {
-    font-family: var(--font-display); font-weight: 900; font-size: clamp(1.6rem, 4vw, 2.3rem);
-    line-height: 1; margin: 0 auto 0 0; color: var(--cobalt-deep); letter-spacing: 0.04em;
-    text-shadow: 3px 3px 0 var(--paper);
-  }
-  .group { display: flex; gap: 8px; }
-  .chip {
-    min-width: 60px; height: 60px; padding: 0 12px; border: 0; border-radius: 18px;
-    background: var(--paper); box-shadow: 0 5px 0 var(--sun-deep); cursor: pointer;
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    transition: transform .12s, box-shadow .12s;
-  }
-  .chip:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--sun-deep); }
-  .chip[aria-pressed="true"] { background: var(--cobalt); color: var(--paper); box-shadow: 0 5px 0 var(--cobalt-deep); }
-  .chip .emo { font-family: var(--emoji); font-size: 2rem; line-height: 1; }
-  .chip .txt { font-weight: 700; font-size: 1rem; }
   .grid4 { display: inline-grid; grid-template-columns: repeat(var(--c), 7px); gap: 2px; }
   .grid4 i { width: 7px; height: 7px; border-radius: 2px; background: currentColor; }
 
@@ -124,22 +73,8 @@
   }
   .panel .pic { width: 160px; height: 160px; margin: 0 auto; border-radius: 20px; background: var(--pic) center / cover; box-shadow: 0 0 0 5px var(--sun); }
   .panel h2 { font-family: var(--font-display); font-weight: 900; font-size: 2.1rem; margin: 12px 0 4px; color: var(--cobalt-deep); text-wrap: balance; }
-  .stars { font-family: var(--emoji); font-size: 2.6rem; letter-spacing: 6px; margin: 4px 0 18px; }
-  .stars .dim { filter: grayscale(1); opacity: .3; }
-  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  .btn {
-    height: 64px; padding: 0 26px; border: 0; border-radius: 20px; cursor: pointer;
-    font-weight: 900; font-size: 1.3rem; background: var(--cobalt); color: var(--paper);
-    box-shadow: 0 6px 0 var(--cobalt-deep);
-  }
-  .btn.alt { background: var(--coral); box-shadow: 0 6px 0 #d4483a; }
-  .btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--cobalt-deep); }
   canvas.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 21; }
 
-  @media (max-width: 560px) {
-    .chip { min-width: 52px; height: 52px; }
-    .chip .txt { display: none; }
-  }
   @media (prefers-reduced-motion: reduce) {
     .piece { transition: none; }
     .piece.nope, .slot .piece, .board.done, .panel { animation: none; }
@@ -175,6 +110,7 @@
   </div>
 </div>
 
+<script src="../shared/kit.js"></script>
 <script>
 (() => {
   const LEVELS = [ { cols: 2, rows: 2, label: '4 片' }, { cols: 3, rows: 2, label: '6 片' }, { cols: 3, rows: 3, label: '9 片' } ];
@@ -201,10 +137,7 @@
 
   const $ = id => document.getElementById(id);
   const play = $('play'), board = $('board'), tray = $('tray');
-  const store = {
-    get(k, d) { try { const v = localStorage.getItem('puzzle.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
-    set(k, v) { try { localStorage.setItem('puzzle.' + k, JSON.stringify(v)); } catch {} },
-  };
+  const store = Kit.store('puzzle');
   const state = {
     level: Math.min(LEVELS.length - 1, Math.max(0, store.get('level', 0) | 0)),
     sound: store.get('sound', true) !== false,
@@ -213,41 +146,16 @@
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- sound ---------- */
-  let ctx = null;
-  function audio() {
-    if (!state.sound) return null;
-    try {
-      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') ctx.resume();
-      return ctx;
-    } catch { return null; }
-  }
-  function tone(freq, start, dur, type = 'sine', vol = 0.18) {
-    const a = audio(); if (!a) return;
-    const t = a.currentTime + start, o = a.createOscillator(), g = a.createGain();
-    o.type = type; o.frequency.setValueAtTime(freq, t);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
-  }
+  // Sound, speech and confetti come from ../shared/kit.js; these follow the game's sound switch.
+  const audio = () => (state.sound ? Kit.audio() : null);
+  const tone = (...args) => { if (state.sound) Kit.tone(...args); };
   const sfx = {
     pick: () => tone(660, 0, 0.1, 'triangle', 0.1),
     snap: () => { tone(784, 0, 0.12, 'triangle', 0.15); tone(1047, 0.08, 0.2, 'triangle', 0.12); },
     miss: () => { tone(330, 0, 0.18, 'sine', 0.1); tone(294, 0.12, 0.22, 'sine', 0.1); },
     win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.35, 'triangle', 0.15)),
   };
-  function say(text) {
-    if (!state.sound || !('speechSynthesis' in window)) return;
-    try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'zh-TW'; u.rate = 0.9; u.pitch = 1.2;
-      const v = speechSynthesis.getVoices().find(v => /zh[-_]TW/i.test(v.lang));
-      if (v) u.voice = v;
-      speechSynthesis.speak(u);
-    } catch {}
-  }
+  const say = text => { if (state.sound) Kit.say(text); };
 
   /* ---------- build a round ---------- */
   function newGame() {
@@ -354,7 +262,7 @@
     setTimeout(() => say(`拼好了！是${state.pic.name}！`), 300);
     setTimeout(() => {
       const stars = state.wrong <= 2 ? 3 : 2; // always encouraging: at least 2 stars
-      $('stars').innerHTML = [0, 1, 2].map(i => i < stars ? '⭐' : '<span class="dim">⭐</span>').join('');
+      $('stars').innerHTML = Kit.stars(stars);
       $('winTitle').textContent = `拼好了！是${state.pic.name}！`;
       $('next').hidden = state.level >= LEVELS.length - 1;
       $('win').hidden = false;
@@ -416,37 +324,8 @@
   new ResizeObserver(layout).observe(play);
 
   /* ---------- confetti ---------- */
-  let confettiRaf = 0, confettiCanvas = null;
-  function startConfetti() {
-    if (reduceMotion) return;
-    stopConfetti();
-    const c = confettiCanvas = document.createElement('canvas');
-    c.className = 'confetti'; document.body.append(c);
-    const dpr = window.devicePixelRatio || 1;
-    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
-    const g = c.getContext('2d'); g.scale(dpr, dpr);
-    const colors = ['#2b59c3', '#ff6b5b', '#2fb36f', '#ffd34e', '#a463f2'];
-    const bits = Array.from({ length: 140 }, () => ({
-      x: Math.random() * innerWidth, y: -20 - Math.random() * innerHeight * 0.6,
-      vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3,
-      r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.2,
-      w: 8 + Math.random() * 8, h: 5 + Math.random() * 6, color: colors[Math.floor(Math.random() * colors.length)],
-    }));
-    const t0 = performance.now();
-    (function frame(now) {
-      g.clearRect(0, 0, innerWidth, innerHeight);
-      for (const b of bits) {
-        b.x += b.vx; b.y += b.vy; b.r += b.vr;
-        g.save(); g.translate(b.x, b.y); g.rotate(b.r); g.fillStyle = b.color;
-        g.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); g.restore();
-      }
-      if (now - t0 < 4500) confettiRaf = requestAnimationFrame(frame); else stopConfetti();
-    })(t0);
-  }
-  function stopConfetti() {
-    cancelAnimationFrame(confettiRaf);
-    if (confettiCanvas) { confettiCanvas.remove(); confettiCanvas = null; }
-  }
+  const startConfetti = () => Kit.confetti.start();
+  const stopConfetti = () => Kit.confetti.stop();
 
   newGame();
 })();
