@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>跳跳恐龍</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="跳跳恐龍">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#ffd34e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans+TC:wght@700;900&display=swap">
+<link rel="stylesheet" href="../shared/kit.css">
+<style>
+  /* Layout: same sunny play mat; toolbar, a run-to-the-flag progress bar, and a wide side-scrolling meadow where the dinosaur runs. */
+  .app { height: 100%; display: flex; flex-direction: column; gap: 10px; padding-block: 12px; }
+
+  /* ---------- distance to the flag ---------- */
+  .road { display: flex; align-items: center; gap: 10px; padding-inline: 4px; }
+  .road .flag, .road .stars-got { font-family: var(--emoji); font-size: 1.8rem; line-height: 1; }
+  .road .stars-got { font-family: var(--font-display); font-weight: 800; font-size: 1.4rem; min-width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; }
+  .road .stars-got .emo { font-family: var(--emoji); }
+  .track { position: relative; flex: 1; height: 18px; border-radius: 999px; background: rgba(255,255,255,.6); box-shadow: inset 0 2px 0 rgba(0,0,0,.08); }
+  .track .fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 999px; background: var(--leaf); }
+  .track .me { position: absolute; top: 50%; left: 0; translate: -50% -50%; width: 28px; height: 28px; border-radius: 50%; background: #4fbf5d; border: 4px solid var(--paper); box-shadow: 0 2px 0 rgba(0,0,0,.15); }
+
+  /* ---------- meadow ---------- */
+  .stage {
+    flex: 1; min-height: 0; position: relative; border-radius: 28px; overflow: hidden;
+    background: #bfe9ff; box-shadow: 0 8px 0 var(--sun-deep); touch-action: none; cursor: pointer;
+  }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hint {
+    position: absolute; left: 50%; top: 18px; translate: -50% 0; padding: 6px 18px; border-radius: 999px;
+    background: rgba(255,255,255,.9); font-weight: 900; font-size: 1.2rem; pointer-events: none; white-space: nowrap;
+  }
+  .start { position: absolute; inset: 0; display: grid; place-items: center; z-index: 4; pointer-events: none; }
+  .start button {
+    pointer-events: auto; width: 150px; height: 150px; border-radius: 50%; border: 6px solid var(--paper);
+    background: var(--coral); color: var(--paper); box-shadow: 0 8px 0 #d4483a; cursor: pointer;
+    font-weight: 900; font-size: 1.4rem; display: grid; place-content: center; gap: 2px;
+    animation: breathe 1.6s ease-in-out infinite;
+  }
+  .start button .play { font-size: 3.4rem; line-height: 1; translate: 6% 0; }
+  .start button:active { transform: translateY(6px); box-shadow: 0 2px 0 #d4483a; }
+  @keyframes breathe { 50% { scale: 1.06; } }
+  @media (prefers-reduced-motion: reduce) { .start button { animation: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <a class="chip" href="../" aria-label="回遊戲選單"><span class="emo">🏠</span></a>
+    <h1 class="brand">跳跳恐龍</h1>
+    <div class="group" id="levels" role="group" aria-label="選擇速度"></div>
+    <div class="group">
+      <button class="chip" id="sound" aria-pressed="true" aria-label="聲音開關"><span class="emo">🔊</span></button>
+      <button class="chip" id="restart" aria-label="重新開始"><span class="emo">🔄</span></button>
+    </div>
+  </header>
+  <div class="road" aria-label="離終點還有多遠">
+    <div class="track" id="track" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div class="fill" id="fill"></div><span class="me" aria-hidden="true"></span></div>
+    <span class="flag" aria-hidden="true">🏁</span>
+    <span class="stars-got" id="got" aria-label="吃到的星星"></span>
+  </div>
+  <main class="stage" id="stage" aria-label="點一下畫面，恐龍就會跳">
+    <canvas id="cv"></canvas>
+    <div class="hint" id="hint">👆 點一下畫面就會跳</div>
+    <div class="start" id="start"><button id="go" aria-label="開始"><span class="play">▶</span><span id="goText">開始</span></button></div>
+  </main>
+</div>
+
+<div class="win" id="win" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="big">🏁</div>
+    <h2 id="winTitle">跑到終點了！</h2>
+    <div class="stars" id="stars"></div>
+    <div class="actions">
+      <button class="btn" id="again">再跑一次</button>
+      <button class="btn alt" id="next">跑快一點 ➜</button>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/kit.js"></script>
+<script>
+(() => {
+  /* Distances are in "ground units": 1 unit = the stage height. The dinosaur stays at a fixed x; the world scrolls. */
+  const LEVELS = [
+    { label: '慢慢', speed: 0.55, length: 22 },
+    { label: '普通', speed: 0.75, length: 28 },
+    { label: '快快', speed: 0.95, length: 34 },
+  ];
+  const GRAVITY = 3.4, JUMP = 1.7;            // units/s² and units/s: about 1 s in the air, 0.42 units high
+  const DINO_X = 0.32, DINO_H = 0.2;          // where it runs (fraction of width) and how tall it is (units)
+  const GROUND = 0.8;                         // ground line, as a fraction of stage height
+  const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), cv = $('cv'), g = cv.getContext('2d');
+  const store = Kit.store('dino');
+  const state = {
+    level: Math.min(LEVELS.length - 1, Math.max(0, store.get('level', 0) | 0)),
+    sound: store.get('sound', true) !== false,
+    running: false, over: false, dist: 0, last: 0, t: 0,
+    y: 0, vy: 0, onGround: true, buffered: 0, stumble: 0, hits: 0, stars: 0, totalStars: 0,
+    things: [], pops: [], W: 0, H: 0, dpr: 1,
+  };
+  const reduceMotion = Kit.reduceMotion;
+  const tone = (...args) => { if (state.sound) Kit.tone(...args); };
+  const say = text => { if (state.sound) Kit.say(text, { rate: 1, pitch: 1.3 }); };
+  const sfx = {
+    jump: () => tone(400, 0, 0.18, 'triangle', 0.12, 800),
+    star: n => { const f = 784 * Math.pow(2, (n % 6) / 12); tone(f, 0, 0.12, 'triangle', 0.14); tone(f * 1.5, 0.06, 0.18, 'triangle', 0.1); },
+    bump: () => { tone(180, 0, 0.2, 'square', 0.08, 90); },
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.35, 'triangle', 0.15)),
+  };
+
+  /* ---------- course: obstacles to hop and stars to grab, always with room to land ---------- */
+  function buildCourse() {
+    const lv = LEVELS[state.level], things = [];
+    let x = 2.2;
+    while (x < lv.length - 1.2) {
+      const r = Math.random();
+      if (r < 0.62) {
+        const kind = ['cactus', 'rock', 'log'][Math.floor(Math.random() * 3)];
+        things.push({ type: 'block', kind, x, w: kind === 'log' ? 0.2 : 0.14, h: kind === 'rock' ? 0.1 : kind === 'log' ? 0.09 : 0.16 });
+        // a star above the obstacle rewards a well-timed jump
+        if (Math.random() < 0.6) things.push({ type: 'star', x: x + 0.02, y: 0.42 });
+      } else {
+        // a little row of stars to jump into
+        for (let k = 0; k < 3; k++) things.push({ type: 'star', x: x + k * 0.22, y: 0.32 + Math.sin(k / 2 * Math.PI) * 0.12 });
+      }
+      x += 1.35 + Math.random() * 1.1 + lv.speed * 0.4;   // gaps grow with speed so every hop is landable
+    }
+    things.push({ type: 'flag', x: lv.length });
+    state.things = things;
+    state.totalStars = things.filter(t => t.type === 'star').length;
+  }
+
+  /* ---------- input: tap anywhere to jump ---------- */
+  function jump() {
+    if (!state.running) return;
+    Kit.audio();
+    if (state.onGround) { state.vy = JUMP; state.onGround = false; sfx.jump(); }
+    else state.buffered = 0.18;            // tapped a little early: jump again right after landing
+  }
+  stage.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; e.preventDefault(); jump(); });
+  document.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'ArrowUp') { e.preventDefault(); jump(); } });
+
+  /* ---------- loop ---------- */
+  function tick(now) {
+    if (!state.running) return;
+    const dt = Math.min(0.05, (now - state.last) / 1000 || 0); state.last = now; state.t += dt;
+    const lv = LEVELS[state.level];
+    const speed = lv.speed * (state.stumble > 0 ? 0.45 : 1);
+    state.dist += speed * dt;
+    state.stumble = Math.max(0, state.stumble - dt);
+    state.buffered = Math.max(0, state.buffered - dt);
+
+    // jump physics
+    if (!state.onGround) {
+      state.vy -= GRAVITY * dt; state.y += state.vy * dt;
+      if (state.y <= 0) {
+        state.y = 0; state.vy = 0; state.onGround = true;
+        if (state.buffered > 0) { state.buffered = 0; state.vy = JUMP; state.onGround = false; sfx.jump(); }
+      }
+    }
+
+    // collisions, measured from the dinosaur's feet at x = dist
+    const dx0 = state.dist, feet = state.y, head = state.y + DINO_H, half = 0.07;
+    for (const t of state.things) {
+      if (t.done) continue;
+      const dx = t.x - dx0;
+      if (t.type === 'block' && Math.abs(dx) < t.w / 2 + half && feet < t.h * 0.85) {
+        t.done = true; state.hits++; state.stumble = 0.7; sfx.bump(); say('哎呀！');
+        state.pops.push({ ch: '💫', x: dx0, y: DINO_H + 0.05, t: 0 });
+      } else if (t.type === 'star' && Math.abs(dx) < 0.1 && t.y > feet - 0.03 && t.y < head + 0.05) {
+        t.done = true; state.stars++; sfx.star(state.stars);
+        state.pops.push({ ch: '✨', x: t.x, y: t.y, t: 0 });
+        updateHud();
+      } else if (t.type === 'flag' && dx < 0) {
+        t.done = true; finish(); return;
+      }
+    }
+    for (const p of state.pops) p.t += dt;
+    state.pops = state.pops.filter(p => p.t < 0.7);
+    updateHud();
+    draw();
+    requestAnimationFrame(tick);
+  }
+
+  /* ---------- drawing ---------- */
+  function resize() {
+    const r = stage.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    Object.assign(state, { W: r.width, H: r.height, dpr });
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    draw();
+  }
+  new ResizeObserver(resize).observe(stage);
+
+  function draw() {
+    const { W, H, dpr } = state; if (!W) return;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    const u = H, gy = H * GROUND, sx = x => W * DINO_X + (x - state.dist) * u, sy = y => gy - y * u;
+
+    // sky, sun, clouds and hills with gentle parallax
+    const sky = g.createLinearGradient(0, 0, 0, gy); sky.addColorStop(0, '#9fdcff'); sky.addColorStop(1, '#e3f6ff');
+    g.fillStyle = sky; g.fillRect(0, 0, W, gy);
+    g.fillStyle = '#ffe066'; g.beginPath(); g.arc(W * 0.85, H * 0.18, H * 0.08, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.9)';
+    for (let i = 0; i < 6; i++) {
+      const cx = ((i * 0.37 * W - state.dist * u * 0.15) % (W * 1.3) + W * 1.3) % (W * 1.3) - W * 0.15, cy = H * (0.12 + (i % 3) * 0.09);
+      for (const [ox, r] of [[0, 0.05], [0.05, 0.065], [0.11, 0.045]]) { g.beginPath(); g.arc(cx + ox * u, cy, r * u, 0, 7); g.fill(); }
+    }
+    g.fillStyle = '#9edc8a';
+    for (let i = -1; i < 6; i++) {
+      const hx = ((i * 0.45 * W - state.dist * u * 0.35) % (W * 2.25) + W * 2.25) % (W * 2.25) - W * 0.4;
+      g.beginPath(); g.ellipse(hx, gy, W * 0.28, H * 0.22, 0, Math.PI, 0); g.fill();
+    }
+    // ground
+    g.fillStyle = '#5cbf5a'; g.fillRect(0, gy, W, H - gy);
+    g.fillStyle = '#4caf50'; g.fillRect(0, gy, W, 8);
+    g.fillStyle = '#c99a5b';
+    for (let x = -((state.dist * u) % 60); x < W; x += 60) g.fillRect(x, gy + (H - gy) * 0.55, 30, 6);
+
+    // course
+    g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    for (const t of state.things) {
+      const x = sx(t.x); if (x < -100 || x > W + 100) continue;
+      if (t.type === 'flag') {
+        g.fillStyle = '#8a5a33'; g.fillRect(x - 3, gy - 0.5 * u, 6, 0.5 * u);
+        g.fillStyle = '#000'; g.font = `${0.16 * u}px ${EMOJI_FONT}`; g.fillText('🏁', x + 0.06 * u, gy - 0.36 * u);
+        continue;
+      }
+      if (t.done && t.type === 'star') continue;
+      if (t.type === 'star') {
+        const bob = reduceMotion ? 0 : Math.sin(state.t * 4 + t.x * 3) * 0.015;
+        g.fillStyle = '#000'; g.font = `${0.1 * u}px ${EMOJI_FONT}`; g.textBaseline = 'middle';
+        g.fillText('⭐', x, sy(t.y + bob)); g.textBaseline = 'alphabetic';
+      } else drawBlock(t, x, gy, u);
+    }
+    drawDino(sx(state.dist), sy(state.y), u);
+    g.textBaseline = 'middle'; g.fillStyle = '#000';
+    for (const p of state.pops) { g.globalAlpha = 1 - p.t / 0.7; g.font = `${0.09 * u}px ${EMOJI_FONT}`; g.fillText(p.ch, sx(p.x), sy(p.y) - p.t * 40); }
+    g.globalAlpha = 1;
+  }
+  function drawBlock(t, x, gy, u) {
+    const w = t.w * u, h = t.h * u;
+    if (t.kind === 'cactus') {
+      g.fillStyle = '#000'; g.font = `${h * 1.15}px ${EMOJI_FONT}`; g.fillText('🌵', x, gy + h * 0.08);
+    } else if (t.kind === 'rock') {
+      g.fillStyle = '#8f9aa5'; g.beginPath(); g.ellipse(x, gy, w / 2, h, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#b5bfc8'; g.beginPath(); g.ellipse(x - w * 0.12, gy - h * 0.55, w * 0.18, h * 0.22, 0, 0, 7); g.fill();
+    } else {
+      g.fillStyle = '#9b6a3c'; g.beginPath(); g.roundRect ? g.roundRect(x - w / 2, gy - h, w, h, h / 2) : g.rect(x - w / 2, gy - h, w, h); g.fill();
+      g.fillStyle = '#d9b07a'; g.beginPath(); g.ellipse(x + w / 2 - h / 2, gy - h / 2, h * 0.35, h * 0.42, 0, 0, 7); g.fill();
+    }
+  }
+  // A friendly green dinosaur drawn with shapes, always facing right.
+  function drawDino(x, y, u) {
+    const s = DINO_H * u, blink = state.stumble > 0 && Math.floor(state.t * 12) % 2 === 0;
+    const run = state.onGround && !reduceMotion ? Math.sin(state.t * 18) : 0;
+    g.save(); g.translate(x, y);
+    if (state.stumble > 0 && !reduceMotion) g.rotate(Math.sin(state.t * 30) * 0.12);
+    g.globalAlpha = blink ? 0.5 : 1;
+    g.fillStyle = 'rgba(0,0,0,.15)'; g.beginPath(); g.ellipse(0, (y < state.H * GROUND - 1 ? state.H * GROUND - y : 0) + 2, s * 0.35, s * 0.07, 0, 0, 7); g.fill();
+    const body = '#4fbf5d', belly = '#c9f2b8', dark = '#2f8f3f';
+    // legs
+    g.fillStyle = dark;
+    g.fillRect(-s * 0.18, -s * 0.22 + run * s * 0.04, s * 0.11, s * 0.22 - run * s * 0.04);
+    g.fillRect(s * 0.05, -s * 0.22 - run * s * 0.04, s * 0.11, s * 0.22 + run * s * 0.04);
+    // tail
+    g.fillStyle = body; g.beginPath(); g.moveTo(-s * 0.25, -s * 0.5); g.quadraticCurveTo(-s * 0.6, -s * 0.38, -s * 0.62, -s * 0.22); g.quadraticCurveTo(-s * 0.4, -s * 0.28, -s * 0.2, -s * 0.28); g.fill();
+    // body
+    g.beginPath(); g.ellipse(0, -s * 0.42, s * 0.3, s * 0.24, 0, 0, 7); g.fill();
+    g.fillStyle = belly; g.beginPath(); g.ellipse(s * 0.06, -s * 0.38, s * 0.17, s * 0.15, 0, 0, 7); g.fill();
+    // spikes
+    g.fillStyle = '#ffb347';
+    for (let i = 0; i < 4; i++) { const px = -s * 0.2 + i * s * 0.12; g.beginPath(); g.moveTo(px - s * 0.05, -s * 0.6 + Math.abs(i - 1.5) * s * 0.03); g.lineTo(px, -s * 0.72 + Math.abs(i - 1.5) * s * 0.03); g.lineTo(px + s * 0.05, -s * 0.6 + Math.abs(i - 1.5) * s * 0.03); g.fill(); }
+    // head
+    g.fillStyle = body; g.beginPath(); g.ellipse(s * 0.3, -s * 0.78, s * 0.22, s * 0.18, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(s * 0.2, -s * 0.6, s * 0.1, s * 0.14, 0, 0, 7); g.fill();
+    // eye and smile
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(s * 0.36, -s * 0.84, s * 0.065, 0, 7); g.fill();
+    g.fillStyle = '#1e2a4a'; g.beginPath(); g.arc(s * 0.38, -s * 0.84, s * 0.035, 0, 7); g.fill();
+    g.strokeStyle = '#1e2a4a'; g.lineWidth = Math.max(2, s * 0.025); g.lineCap = 'round';
+    g.beginPath(); g.arc(s * 0.38, -s * 0.74, s * 0.08, 0.2, Math.PI * 0.75); g.stroke();
+    g.fillStyle = '#ff8fa3'; g.beginPath(); g.arc(s * 0.27, -s * 0.72, s * 0.035, 0, 7); g.fill();
+    // arm
+    g.strokeStyle = dark; g.lineWidth = s * 0.06; g.beginPath(); g.moveTo(s * 0.22, -s * 0.42); g.lineTo(s * 0.32, -s * 0.36); g.stroke();
+    g.restore();
+  }
+
+  /* ---------- round flow ---------- */
+  function updateHud() {
+    const lv = LEVELS[state.level], pct = Math.min(100, state.dist / lv.length * 100);
+    $('fill').style.width = pct + '%';
+    document.querySelector('.track .me').style.left = pct + '%';
+    $('track').setAttribute('aria-valuenow', Math.round(pct));
+    $('got').innerHTML = `<span class="emo">⭐</span> ${state.stars}`;
+  }
+  function newGame() {
+    state.running = false;
+    $('win').hidden = true; Kit.confetti.stop();
+    Object.assign(state, { over: false, dist: 0, t: 0, y: 0, vy: 0, onGround: true, buffered: 0, stumble: 0, hits: 0, stars: 0, pops: [] });
+    buildCourse(); updateHud();
+    $('goText').textContent = '開始'; $('start').hidden = false; $('hint').hidden = false;
+    syncToolbar(); draw();
+  }
+  function begin() {
+    Kit.audio(); say('點一下就會跳！跑到終點吧！');
+    $('start').hidden = true;
+    setTimeout(() => { $('hint').hidden = true; }, 3000);
+    state.running = true; state.last = performance.now();
+    requestAnimationFrame(tick);
+  }
+  function pause() {
+    if (!state.running) return;
+    state.running = false; $('goText').textContent = '繼續'; $('start').hidden = false;
+  }
+  function finish() {
+    state.running = false; state.over = true;
+    setTimeout(() => {
+      const stars = state.hits <= 2 ? 3 : 2; // always encouraging: at least 2 stars
+      $('stars').innerHTML = Kit.stars(stars);
+      $('winTitle').textContent = `跑到終點了！吃到 ${state.stars} 顆星星`;
+      $('next').hidden = state.level >= LEVELS.length - 1;
+      $('win').hidden = false;
+      sfx.win(); say(`跑到終點了！吃到${state.stars}顆星星！`);
+      Kit.confetti.start();
+      $('again').focus();
+    }, 300);
+  }
+  $('go').addEventListener('click', begin);
+  $('again').addEventListener('click', () => { newGame(); begin(); });
+  $('next').addEventListener('click', () => {
+    state.level = Math.min(LEVELS.length - 1, state.level + 1); store.set('level', state.level); newGame(); begin();
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+  /* ---------- toolbar ---------- */
+  LEVELS.forEach((lv, i) => {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.setAttribute('aria-label', lv.label);
+    b.innerHTML = `<span class="dots">${'<i></i>'.repeat(i + 1)}</span><span class="txt">${lv.label}</span>`;
+    b.addEventListener('click', () => { state.level = i; store.set('level', i); newGame(); });
+    $('levels').append(b);
+  });
+  $('sound').addEventListener('click', () => {
+    state.sound = !state.sound; store.set('sound', state.sound);
+    if (!state.sound) Kit.hush();
+    syncToolbar();
+  });
+  $('restart').addEventListener('click', newGame);
+  function syncToolbar() {
+    [...$('levels').children].forEach((b, i) => b.setAttribute('aria-pressed', i === state.level));
+    $('sound').setAttribute('aria-pressed', state.sound);
+    $('sound').querySelector('.emo').textContent = state.sound ? '🔊' : '🔇';
+  }
+
+  requestAnimationFrame(() => { resize(); newGame(); });
+})();
+</script>
+</body>
+</html>
