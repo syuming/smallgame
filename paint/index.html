@@ -108,6 +108,7 @@
     <div class="actions">
       <button class="btn" id="keep">繼續塗</button>
       <button class="btn alt" id="next">畫下一張 ➜</button>
+      <a class="btn home" href="../">🏠 回選單</a>
     </div>
   </div>
 </div>
@@ -271,8 +272,17 @@
   $('keep').addEventListener('click', () => { $('win').hidden = true; Kit.confetti.stop(); });
   $('next').addEventListener('click', () => {
     $('win').hidden = true; Kit.confetti.stop();
-    state.pic = PIC_KEYS[(PIC_KEYS.indexOf(state.pic) + 1) % PIC_KEYS.length]; store.set('pic', state.pic); render();
+    openPic(PIC_KEYS[(PIC_KEYS.indexOf(state.pic) + 1) % PIC_KEYS.length]);
   });
+  // Switch to another picture. One that was finished before starts again on a fresh white sheet (so it can be
+  // celebrated again); one that is only partly coloured keeps its progress.
+  function openPic(key) {
+    if (key !== state.pic) {
+      const saved = store.get('fills.' + key, []), n = PICTURES[key].parts.filter(p => p[0] === 'r').length;
+      if (saved.length === n && saved.every(c => c && c !== WHITE)) store.set('fills.' + key, []);
+    }
+    state.pic = key; store.set('pic', key); render();
+  }
 
   /* ---------- example: tap the thumbnail to see it big, tap again (anywhere) to close ---------- */
   peek.addEventListener('click', () => { sfx.pick(); $('example').hidden = false; });
@@ -301,7 +311,7 @@
     const p = PICTURES[key], b = document.createElement('button');
     b.className = 'chip'; b.dataset.key = key; b.setAttribute('aria-label', p.label);
     b.innerHTML = `<span class="emo">${p.icon}</span><span class="txt">${p.label}</span>`;
-    b.addEventListener('click', () => { state.pic = key; store.set('pic', key); render(); });
+    b.addEventListener('click', () => openPic(key));
     $('pics').append(b);
   }
   $('undo').addEventListener('click', () => {

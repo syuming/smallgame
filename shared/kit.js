@@ -38,17 +38,28 @@ window.Kit = (() => {
     : null;
 
   // Speak Traditional Chinese with a Taiwanese voice when the device has one.
-  function say(text, { rate = 0.9, pitch = 1.2 } = {}) {
-    if (nativeTTS) { nativeTTS('stop').then(() => nativeTTS('speak', { text, lang: 'zh-TW', rate, pitch })); return; }
-    if (!('speechSynthesis' in window)) return;
-    try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'zh-TW'; u.rate = rate; u.pitch = pitch;
-      const v = speechSynthesis.getVoices().find(v => /zh[-_]TW/i.test(v.lang));
-      if (v) u.voice = v;
-      speechSynthesis.speak(u);
-    } catch {}
+  // Returns a Promise that resolves once the sentence has been spoken (or was cut off, failed or there is no
+  // speech at all). It also resolves after `timeout` ms, because some devices never report the end.
+  // Games that just want to talk can ignore it.
+  let speaking = null;                        // keeps the current utterance alive so its onend still fires
+  function say(text, { rate = 0.9, pitch = 1.2, timeout = 4500 } = {}) {
+    let finished;
+    const timer = new Promise(res => setTimeout(res, timeout));
+    if (nativeTTS) {
+      finished = nativeTTS('stop').then(() => nativeTTS('speak', { text, lang: 'zh-TW', rate, pitch }));
+    } else {
+      if (!('speechSynthesis' in window)) return Promise.resolve();
+      try {
+        speechSynthesis.cancel();
+        const u = speaking = new SpeechSynthesisUtterance(text);
+        u.lang = 'zh-TW'; u.rate = rate; u.pitch = pitch;
+        const v = speechSynthesis.getVoices().find(v => /zh[-_]TW/i.test(v.lang));
+        if (v) u.voice = v;
+        finished = new Promise(res => { u.onend = u.onerror = res; });
+        speechSynthesis.speak(u);
+      } catch { return Promise.resolve(); }
+    }
+    return Promise.race([finished, timer]).then(() => {});
   }
   function hush() {
     if (nativeTTS) { nativeTTS('stop'); return; }
