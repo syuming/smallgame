@@ -121,18 +121,41 @@
   function emoji(g, ch, x, y, size) { g.font = `${size}px ${EMOJI_FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, x, y); }
   function sky(g, S, top, bottom) { const gr = g.createLinearGradient(0, 0, 0, S); gr.addColorStop(0, top); gr.addColorStop(1, bottom); g.fillStyle = gr; g.fillRect(0, 0, S, S); }
   function ground(g, S, y, color) { g.fillStyle = color; g.beginPath(); g.moveTo(0, y); g.quadraticCurveTo(S / 2, y - S * 0.08, S, y); g.lineTo(S, S); g.lineTo(0, S); g.fill(); }
+  // Every picture has a big subject in the middle and a different small thing in each of the eight outer ninths.
+  // Each outer ninth lies wholly inside one piece at 3×3, and the corner and top/bottom ninths inside one piece at 2×2 and 3×2,
+  // so every piece at every size shows something a child can tell apart.
+  const SPOTS = [[1, 1], [3, 1], [5, 1], [1, 3], [5, 3], [1, 5], [3, 5], [5, 5]];   // ninth centres, in sixths of the picture
+  function scene(g, S, subject, things, small = .17) {
+    things.forEach((ch, i) => emoji(g, ch, S * SPOTS[i][0] / 6, S * SPOTS[i][1] / 6, S * small));
+    emoji(g, subject, S * .5, S * .5, S * .42);
+  }
   const PICTURES = [
-    { name: '獅子', draw(g, S) { sky(g, S, '#ffe08a', '#ffb35c'); emoji(g, '☀️', S * .8, S * .18, S * .16); ground(g, S, S * .72, '#e3a64a'); emoji(g, '🌳', S * .14, S * .6, S * .22); emoji(g, '🦁', S * .55, S * .55, S * .5); } },
-    { name: '火箭', draw(g, S) { sky(g, S, '#14204a', '#2d3f8a'); const r = seeded(7); g.fillStyle = '#ffffff'; for (let i = 0; i < 70; i++) { g.globalAlpha = .4 + r() * .6; g.beginPath(); g.arc(r() * S, r() * S, 1 + r() * 2.5, 0, 7); g.fill(); } g.globalAlpha = 1; emoji(g, '🌙', S * .18, S * .2, S * .16); emoji(g, '🪐', S * .8, S * .78, S * .2); emoji(g, '🚀', S * .5, S * .5, S * .48); } },
-    { name: '鯨魚', draw(g, S) { sky(g, S, '#7fd3f7', '#1f6fb8'); const r = seeded(3); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 3; for (let i = 0; i < 14; i++) { g.beginPath(); g.arc(r() * S, r() * S, 5 + r() * 12, 0, 7); g.stroke(); } ground(g, S, S * .88, '#f2d58a'); emoji(g, '🐠', S * .18, S * .22, S * .14); emoji(g, '🐙', S * .82, S * .8, S * .16); emoji(g, '🐳', S * .5, S * .5, S * .5); } },
-    { name: '恐龍', draw(g, S) { sky(g, S, '#bdf0ff', '#e9fbd2'); emoji(g, '🌋', S * .78, S * .3, S * .26); ground(g, S, S * .74, '#5cbf5a'); emoji(g, '🌴', S * .14, S * .58, S * .26); emoji(g, '🦖', S * .52, S * .58, S * .48); } },
-    { name: '彩虹獨角獸', draw(g, S) { sky(g, S, '#ffe3f4', '#d9ecff'); const cols = ['#ff5a5a', '#ffa23a', '#ffd84a', '#5cc96a', '#4aa3ff', '#9a6bff']; g.lineWidth = S * .035; cols.forEach((c, i) => { g.strokeStyle = c; g.beginPath(); g.arc(S / 2, S * .78, S * (.46 - i * .035), Math.PI, 0); g.stroke(); }); emoji(g, '☁️', S * .14, S * .72, S * .2); emoji(g, '☁️', S * .86, S * .72, S * .2); emoji(g, '🦄', S * .5, S * .56, S * .42); } },
-    { name: '消防車', draw(g, S) { sky(g, S, '#cfeeff', '#f4fbff'); emoji(g, '🏢', S * .2, S * .38, S * .3); emoji(g, '🏠', S * .8, S * .44, S * .24); g.fillStyle = '#555c6b'; g.fillRect(0, S * .7, S, S * .3); g.fillStyle = '#ffffff'; for (let x = S * .05; x < S; x += S * .2) g.fillRect(x, S * .84, S * .1, S * .025); emoji(g, '🚒', S * .5, S * .64, S * .46); } },
+    { name: '獅子', draw(g, S) { sky(g, S, '#ffe08a', '#ffb35c'); ground(g, S, S * .62, '#e3a64a');
+      scene(g, S, '🦁', ['☁️', '🐦', '☀️', '🌳', '🐒', '🌼', '🐘', '🐆']); } },
+    { name: '火箭', draw(g, S) { sky(g, S, '#14204a', '#2d3f8a'); const r = seeded(7); g.fillStyle = '#ffffff'; for (let i = 0; i < 70; i++) { g.globalAlpha = .4 + r() * .6; g.beginPath(); g.arc(r() * S, r() * S, 1 + r() * 2.5, 0, 7); g.fill(); } g.globalAlpha = 1;
+      scene(g, S, '🚀', ['🌙', '⭐', '🌞', '🌍', '☄️', '🛰️', '👽', '🪐']); } },
+    { name: '鯨魚', draw(g, S) { sky(g, S, '#7fd3f7', '#1f6fb8'); const r = seeded(3); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 3; for (let i = 0; i < 14; i++) { g.beginPath(); g.arc(r() * S, r() * S, 5 + r() * 12, 0, 7); g.stroke(); } ground(g, S, S * .9, '#f2d58a');
+      scene(g, S, '🐳', ['🐠', '⛵', '🐬', '🦑', '🐢', '🐚', '🦀', '🐙']); } },
+    { name: '恐龍', draw(g, S) { sky(g, S, '#bdf0ff', '#e9fbd2'); ground(g, S, S * .64, '#5cbf5a');
+      scene(g, S, '🦖', ['☀️', '☁️', '🌋', '🌴', '🦕', '🥚', '🍄', '🌵']); } },
+    { name: '彩虹獨角獸', draw(g, S) { sky(g, S, '#ffe3f4', '#d9ecff'); const cols = ['#ff5a5a', '#ffa23a', '#ffd84a', '#5cc96a', '#4aa3ff', '#9a6bff']; g.lineWidth = S * .035; cols.forEach((c, i) => { g.strokeStyle = c; g.beginPath(); g.arc(S / 2, S * .78, S * (.46 - i * .035), Math.PI, 0); g.stroke(); });
+      scene(g, S, '🦄', ['☁️', '⭐', '🦋', '🎈', '🌷', '🍭', '🌼', '🍰']); } },
+    { name: '消防車', draw(g, S) { sky(g, S, '#cfeeff', '#f4fbff'); g.fillStyle = '#555c6b'; g.fillRect(0, S * .7, S, S * .3); g.fillStyle = '#ffffff'; for (let x = S * .05; x < S; x += S * .2) g.fillRect(x, S * .84, S * .1, S * .025);
+      scene(g, S, '🚒', ['☁️', '🚁', '☀️', '🏢', '🏠', '🚦', '🐶', '🚓']); } },
   ];
   function render(pic) {
     const S = 720, c = document.createElement('canvas'); c.width = c.height = S;
     const g = c.getContext('2d'); pic.draw(g, S);
-    return c.toDataURL('image/png');
+    return c;
+  }
+  // Pieces that look the same (pixel for pixel, give or take anti-aliasing) share a look number,
+  // and a piece may go in any slot with its look, so two identical patches of sky can never be "wrong".
+  function looks(canvas, cols, rows) {
+    const g = canvas.getContext('2d'), w = Math.floor(canvas.width / cols), h = Math.floor(canvas.height / rows);
+    const px = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) px.push(g.getImageData(c * w, r * h, w, h).data);
+    const same = (a, b) => { for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > 6) return false; return true; };
+    return px.map((p, i) => { const j = px.findIndex(q => same(p, q)); return j < i ? j : i; });
   }
 
   const $ = id => document.getElementById(id);
@@ -141,7 +164,7 @@
   const state = {
     level: Math.min(LEVELS.length - 1, Math.max(0, store.get('level', 0) | 0)),
     sound: store.get('sound', true) !== false,
-    pic: null, picIndex: -1, pieces: [], slots: [], selected: null, left: 0, wrong: 0,
+    pic: null, picIndex: -1, looks: [], pieces: [], slots: [], selected: null, left: 0, wrong: 0,
   };
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -162,10 +185,11 @@
     $('win').hidden = true; stopConfetti();
     let i; do { i = Math.floor(Math.random() * PICTURES.length); } while (i === state.picIndex && PICTURES.length > 1);
     state.picIndex = i; state.pic = PICTURES[i];
-    const url = `url(${render(state.pic)})`;
-    document.documentElement.style.setProperty('--pic', url);
+    const canvas = render(state.pic);
+    document.documentElement.style.setProperty('--pic', `url(${canvas.toDataURL('image/png')})`);
 
     const { cols, rows } = LEVELS[state.level];
+    state.looks = looks(canvas, cols, rows);
     play.style.setProperty('--cols', cols); play.style.setProperty('--rows', rows);
     Object.assign(state, { selected: null, left: cols * rows, wrong: 0 });
 
@@ -245,7 +269,7 @@
   }
   function place(piece, slot) {
     const el = piece.el;
-    if (slot && slot.index === piece.index) {
+    if (slot && state.looks[slot.index] === state.looks[piece.index]) {
       piece.done = true; slot.filled = true;
       el.style.translate = ''; el.classList.remove('selected');
       el.setAttribute('tabindex', '-1');

@@ -20,17 +20,48 @@
   /* Layout: same sunny play mat; toolbar with the six pictures, then the drawing on a white sheet beside a palette of big paint pots (palette goes underneath on tall screens). */
   .app { height: 100%; display: flex; flex-direction: column; gap: 12px; padding-block: 12px; }
   @media (max-width: 1100px) { .chip .txt { display: none; } }
+  /* Phones: drop the title and give the six pictures their own row of smaller chips, so the sheet and palette get the height. */
+  @media (max-width: 560px) {
+    .brand { display: none; }
+    .bar { justify-content: space-between; }
+    #pics { order: 1; width: 100%; flex-wrap: nowrap; gap: 6px; }
+    #pics .chip { flex: 1 1 0; min-width: 0; height: 52px; padding: 0; }
+    #pics .chip .emo { font-size: 1.7rem; }
+  }
+  /* Phones on their side: one slim toolbar row, no title. */
+  @media (max-height: 500px) and (min-width: 561px) {
+    .brand { display: none; }
+    .bar, .group { flex-wrap: nowrap; gap: 6px; }
+    .bar .chip { min-width: 0; height: 50px; padding: 0 8px; }
+    .bar .chip .emo { font-size: 1.6rem; }
+  }
 
   .studio { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 18px; }
   .studio.tall { flex-direction: column; }
   .sheet {
-    width: var(--S); height: var(--S); flex: none; padding: 10px; border-radius: 26px;
+    position: relative; width: var(--S); height: var(--S); flex: none; padding: 10px; border-radius: 26px;
     background: var(--paper); box-shadow: 0 8px 0 var(--sun-deep);
   }
-  .sheet svg { width: 100%; height: 100%; display: block; touch-action: manipulation; }
-  .sheet .region { cursor: pointer; transition: fill .15s; stroke: #1e2a4a; stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; }
-  .sheet .ink { fill: #1e2a4a; stroke: none; pointer-events: none; }
-  .sheet .line { fill: none; stroke: #1e2a4a; stroke-width: 6; stroke-linecap: round; pointer-events: none; }
+  .art { width: 100%; height: 100%; display: block; touch-action: manipulation; }
+  .art .region { cursor: pointer; transition: fill .15s; stroke: #1e2a4a; stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; }
+  .art .ink { fill: #1e2a4a; stroke: none; pointer-events: none; }
+  .art .line { fill: none; stroke: #1e2a4a; stroke-width: 6; stroke-linecap: round; pointer-events: none; }
+
+  /* The coloured-in example: a thumbnail in the sheet's bottom-left corner (only background or full-width ground sits there), tap to see it big. */
+  .peek {
+    position: absolute; left: 2px; bottom: 2px; width: max(54px, 21%); aspect-ratio: 1; padding: 4px; cursor: pointer;
+    border: 0; border-radius: 16px; background: var(--paper); box-shadow: 0 4px 0 var(--sun-deep), 0 0 0 3px var(--cobalt);
+  }
+  .peek .art { pointer-events: none; }
+  .peek .tag { position: absolute; right: -10px; top: -12px; font-family: var(--emoji); font-size: 1.6rem; line-height: 1; }
+  .example {
+    position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; cursor: pointer;
+    background: rgba(30, 42, 74, .55); padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  }
+  .example figure { margin: 0; width: min(92vw, 100dvh - 110px, 720px); padding: 12px; border-radius: 28px; background: var(--paper); box-shadow: 0 8px 0 var(--cobalt-deep); animation: grow .25s ease; }
+  .example .art { pointer-events: none; height: auto; aspect-ratio: 1; }
+  .example figcaption { text-align: center; font-weight: 900; font-size: 1.3rem; color: var(--cobalt-deep); margin-top: 8px; }
+  @keyframes grow { from { scale: .6; } to { scale: 1; } }
   .sheet.done svg { animation: shine 1s ease; }
   @keyframes shine { 0%, 100% { filter: none; } 40% { filter: brightness(1.15) drop-shadow(0 0 12px #fff); } }
 
@@ -42,7 +73,7 @@
   .pot[aria-pressed="true"] { border-color: var(--ink); transform: scale(1.12); box-shadow: 0 0 0 4px var(--paper), 0 0 0 7px var(--cobalt); }
   .pot.eraser { background: #fff; display: grid; place-items: center; font-family: var(--emoji); font-size: calc(var(--pot) * 0.5); }
   .group { flex-wrap: wrap; }
-  @media (prefers-reduced-motion: reduce) { .sheet.done svg { animation: none; } .region { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .sheet.done svg, .example figure { animation: none; } .region { transition: none; } }
 </style>
 </head>
 <body>
@@ -58,9 +89,15 @@
     </div>
   </header>
   <main class="studio" id="studio">
-    <div class="sheet" id="sheet"></div>
+    <div class="sheet" id="sheet">
+      <button class="peek" id="peek" aria-label="看上色範例"><span class="tag">👀</span></button>
+    </div>
     <div class="palette" id="palette" role="group" aria-label="選顏色"></div>
   </main>
+</div>
+
+<div class="example" id="example" role="dialog" aria-modal="true" aria-label="上色範例" hidden>
+  <figure><div id="exampleArt"></div><figcaption>範例 · 也可以塗自己喜歡的顏色喔！</figcaption></figure>
 </div>
 
 <div class="win" id="win" hidden>
@@ -78,9 +115,18 @@
 <script src="../shared/kit.js"></script>
 <script>
 (() => {
-  const COLORS = ['#ff5a5a', '#ff9f43', '#ffd93d', '#6ad66a', '#2fb36f', '#5ec8f5', '#2f7fe0', '#9b6bff', '#ff8fc8', '#a8724a', '#8d99a6', '#1e2a4a'];
+  // Paint pots: [colour, name read out for screen readers]. The examples below use these same colours, so a child can find each one.
+  const POTS = [
+    ['#c0392b', '深紅'], ['#ff5a5a', '紅色'], ['#ffc6d9', '淺粉紅'], ['#ff8fc8', '粉紅'], ['#ff9f43', '橘色'], ['#ffd3b0', '膚色'],
+    ['#ffd93d', '黃色'], ['#f3e3b5', '米色'], ['#b5e04a', '黃綠'], ['#6ad66a', '淺綠'], ['#2fb36f', '綠色'], ['#1e7a45', '深綠'],
+    ['#5ec8f5', '淺藍'], ['#2f7fe0', '藍色'], ['#1f3f99', '深藍'], ['#c9a8ff', '淺紫'], ['#9b6bff', '紫色'],
+    ['#a8724a', '棕色'], ['#6b4226', '深棕'], ['#8d99a6', '灰色'], ['#222222', '黑色'],
+  ];
+  const COLORS = POTS.map(([c]) => c);
   const WHITE = '#ffffff';
+  const C = Object.fromEntries(POTS.map(([c, name]) => [name, c]));
   // Pictures on a 400 × 400 sheet. "r" shapes can be coloured; "ink" shapes are fixed dark details; "line" is outline only.
+  // "example" names a suggested pot for each "r" shape in order; it is only shown as a model to copy, never enforced.
   const PICTURES = {
     cat: { label: '小貓', icon: '🐱', parts: [
       ['r', 'rect', { x: 8, y: 8, width: 384, height: 384, rx: 30 }],
@@ -93,7 +139,7 @@
       ['r', 'circle', { cx: 120, cy: 268, r: 20 }], ['r', 'circle', { cx: 280, cy: 268, r: 20 }],
       ['line', 'path', { d: 'M200 268 Q200 290 178 292 M200 268 Q200 290 222 292' }],
       ['line', 'path', { d: 'M96 240 L36 226 M96 256 L34 262 M304 240 L364 226 M304 256 L366 262' }],
-    ] },
+    ], example: ['淺藍', '橘色', '橘色', '橘色', '淺粉紅', '淺粉紅', '黃綠', '黃綠', '粉紅', '淺粉紅', '淺粉紅'] },
     fish: { label: '小魚', icon: '🐟', parts: [
       ['r', 'rect', { x: 8, y: 8, width: 384, height: 384, rx: 30 }],
       ['r', 'path', { d: 'M8 330 Q 60 300 110 330 T 210 330 T 310 330 T 392 330 L392 362 Q392 392 362 392 L38 392 Q8 392 8 362 Z' }],
@@ -105,7 +151,7 @@
       ['r', 'circle', { cx: 120, cy: 182, r: 22 }], ['ink', 'circle', { cx: 116, cy: 182, r: 10 }],
       ['line', 'path', { d: 'M88 222 Q 104 236 122 226' }],
       ['r', 'circle', { cx: 70, cy: 110, r: 16 }], ['r', 'circle', { cx: 52, cy: 66, r: 11 }], ['r', 'circle', { cx: 300, cy: 80, r: 14 }],
-    ] },
+    ], example: ['藍色', '米色', '橘色', '黃色', '橘色', '橘色', '米色', '淺藍', '淺藍', '淺藍'] },
     car: { label: '汽車', icon: '🚗', parts: [
       ['r', 'rect', { x: 8, y: 8, width: 384, height: 384, rx: 30 }],
       ['r', 'rect', { x: 8, y: 300, width: 384, height: 92, rx: 0 }],
@@ -115,7 +161,7 @@
       ['r', 'rect', { x: 340, y: 208, width: 28, height: 18, rx: 6 }],
       ['r', 'circle', { cx: 114, cy: 272, r: 38 }], ['r', 'circle', { cx: 296, cy: 272, r: 38 }],
       ['r', 'circle', { cx: 114, cy: 272, r: 15 }], ['r', 'circle', { cx: 296, cy: 272, r: 15 }],
-    ] },
+    ], example: ['淺藍', '灰色', '黃色', '紅色', '米色', '米色', '黃色', '黑色', '黑色', '灰色', '灰色'] },
     house: { label: '房子', icon: '🏠', parts: [
       ['r', 'rect', { x: 8, y: 8, width: 384, height: 384, rx: 30 }],
       ['r', 'rect', { x: 8, y: 318, width: 384, height: 74, rx: 0 }],
@@ -126,7 +172,7 @@
       ['r', 'rect', { x: 176, y: 236, width: 50, height: 86, rx: 6 }],
       ['r', 'rect', { x: 116, y: 210, width: 44, height: 40, rx: 4 }], ['r', 'rect', { x: 242, y: 210, width: 44, height: 40, rx: 4 }],
       ['r', 'ellipse', { cx: 340, cy: 312, rx: 34, ry: 24 }],
-    ] },
+    ], example: ['淺藍', '綠色', '黃色', '深棕', '米色', '深紅', '棕色', '淺藍', '淺藍', '深綠'] },
     flower: { label: '花朵', icon: '🌸', parts: [
       ['r', 'rect', { x: 8, y: 8, width: 384, height: 384, rx: 30 }],
       ['r', 'rect', { x: 190, y: 190, width: 20, height: 140 }],
@@ -135,7 +181,7 @@
       ...[0, 60, 120, 180, 240, 300].map(a => ['r', 'ellipse', { cx: 200, cy: 98, rx: 34, ry: 52, transform: `rotate(${a} 200 160)` }]),
       ['r', 'circle', { cx: 200, cy: 160, r: 38 }],
       ['r', 'polygon', { points: '128,316 272,316 254,388 146,388' }],
-    ] },
+    ], example: ['淺藍', '綠色', '深綠', '深綠', '粉紅', '粉紅', '粉紅', '粉紅', '粉紅', '粉紅', '黃色', '棕色'] },
     rocket: { label: '火箭', icon: '🚀', parts: [
       ['r', 'rect', { x: 8, y: 8, width: 384, height: 384, rx: 30 }],
       ['r', 'polygon', { points: '62,60 70,84 94,84 74,98 82,122 62,108 42,122 50,98 30,84 54,84' }],
@@ -146,12 +192,12 @@
       ['r', 'path', { d: 'M200 40 Q 262 110 244 300 L156 300 Q 138 110 200 40 Z' }],
       ['r', 'circle', { cx: 200, cy: 160, r: 28 }],
       ['r', 'rect', { x: 186, y: 230, width: 28, height: 70 }],
-    ] },
+    ], example: ['深藍', '黃色', '黃色', '黃色', '橘色', '紅色', '紅色', '米色', '淺藍', '紅色'] },
   };
   const PIC_KEYS = Object.keys(PICTURES);
 
   const $ = id => document.getElementById(id);
-  const studio = $('studio'), sheet = $('sheet'), palette = $('palette');
+  const studio = $('studio'), sheet = $('sheet'), palette = $('palette'), peek = $('peek'), peekTag = peek.firstElementChild;
   const store = Kit.store('paint');
   const state = {
     pic: PICTURES[store.get('pic', 'cat')] ? store.get('pic', 'cat') : 'cat',
@@ -168,24 +214,30 @@
 
   /* ---------- drawing the picture ---------- */
   const NS = 'http://www.w3.org/2000/svg';
-  function render() {
-    const pic = PICTURES[state.pic], saved = store.get('fills.' + state.pic, []);
-    const svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 400 400'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', pic.label + '的著色圖');
-    state.regions = [];
+  // Draws a picture's line art with the given fill for each colourable shape; returns the svg and those shapes.
+  function drawing(pic, fillOf) {
+    const svg = document.createElementNS(NS, 'svg'), regions = [];
+    svg.setAttribute('viewBox', '0 0 400 400'); svg.setAttribute('class', 'art');
     for (const [kind, tag, attrs] of pic.parts) {
       const el = document.createElementNS(NS, tag);
       for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-      if (kind === 'r') {
-        const i = state.regions.length;
-        el.setAttribute('class', 'region');
-        el.setAttribute('fill', saved[i] || WHITE);
-        el.addEventListener('click', () => paint(i));
-        state.regions.push(el);
-      } else el.setAttribute('class', kind);
+      if (kind === 'r') { el.setAttribute('class', 'region'); el.setAttribute('fill', fillOf(regions.length)); regions.push(el); }
+      else el.setAttribute('class', kind);
       svg.append(el);
     }
-    sheet.replaceChildren(svg);
+    return { svg, regions };
+  }
+  function render() {
+    const pic = PICTURES[state.pic], saved = store.get('fills.' + state.pic, []);
+    const { svg, regions } = drawing(pic, i => saved[i] || WHITE);
+    svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', pic.label + '的著色圖');
+    regions.forEach((el, i) => el.addEventListener('click', () => paint(i)));
+    state.regions = regions;
+    sheet.replaceChildren(svg, peek);
+    const example = () => drawing(pic, i => C[pic.example[i]] || WHITE).svg;
+    peek.replaceChildren(example(), peekTag);
+    $('exampleArt').replaceChildren(example());
+    $('example').hidden = true;
     sheet.classList.remove('done');
     state.history = [];
     state.celebrated = isDone();
@@ -222,13 +274,18 @@
     state.pic = PIC_KEYS[(PIC_KEYS.indexOf(state.pic) + 1) % PIC_KEYS.length]; store.set('pic', state.pic); render();
   });
 
+  /* ---------- example: tap the thumbnail to see it big, tap again (anywhere) to close ---------- */
+  peek.addEventListener('click', () => { sfx.pick(); $('example').hidden = false; });
+  $('example').addEventListener('click', () => { $('example').hidden = true; peek.focus(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') $('example').hidden = true; });
+
   /* ---------- palette ---------- */
   function buildPalette() {
     palette.innerHTML = '';
     for (const c of [...COLORS, WHITE]) {
       const b = document.createElement('button');
       b.className = 'pot' + (c === WHITE ? ' eraser' : ''); b.style.setProperty('--c', c);
-      b.setAttribute('aria-label', c === WHITE ? '橡皮擦' : '顏色 ' + c);
+      b.setAttribute('aria-label', c === WHITE ? '橡皮擦' : POTS.find(p => p[0] === c)[1]);
       if (c === WHITE) b.textContent = '🧽';
       b.addEventListener('click', () => { state.color = c; sfx.pick(); syncPalette(); });
       palette.append(b);
@@ -276,19 +333,24 @@
     $('sound').querySelector('.emo').textContent = state.sound ? '🔊' : '🔇';
   }
 
-  /* ---------- sizing: the biggest sheet that leaves room for the palette ---------- */
+  /* ---------- sizing: the biggest sheet that leaves room for the palette, with pots no smaller than a toddler's fingertip ---------- */
   function layout() {
     const W = studio.clientWidth, H = studio.clientHeight, n = COLORS.length + 1;
     let best = null;
-    for (const tall of [false, true]) {
-      for (const pc of tall ? [7, 5] : [2, 3]) {
-        const rows = Math.ceil(n / pc);
-        const pot = Math.max(30, Math.min(64, tall ? (W - 24 - (pc - 1) * 10) / pc : (H - 24 - (rows - 1) * 10) / rows));
-        const palW = pc * pot + (pc - 1) * 10 + 24, palH = rows * pot + (rows - 1) * 10 + 24;
-        const S = Math.floor(Math.min(tall ? W : W - palW - 18, tall ? H - palH - 18 : H) - 4);
-        if (S > 0 && (!best || S > best.S)) best = { S, tall, pc, pot };
+    for (const minPot of [36, 30, 0]) {
+      for (const tall of [false, true]) {
+        for (const pc of tall ? [6, 7, 8] : [2, 3, 4, 5]) {
+          const rows = Math.ceil(n / pc);
+          const pot = Math.min(64, tall ? (W - 24 - (pc - 1) * 10) / pc : (H - 24 - (rows - 1) * 10) / rows);
+          if (pot < minPot) continue;
+          const palW = pc * pot + (pc - 1) * 10 + 24, palH = rows * pot + (rows - 1) * 10 + 24;
+          const S = Math.floor(Math.min(tall ? W : W - palW - 18, tall ? H - palH - 18 : H) - 4);
+          if (S > 0 && (!best || S > best.S)) best = { S, tall, pc, pot };
+        }
       }
+      if (best) break;
     }
+    best ??= { S: 120, tall: true, pc: 8, pot: 30 };
     studio.classList.toggle('tall', best.tall);
     studio.style.setProperty('--S', Math.min(best.S, 720) + 'px');
     palette.style.setProperty('--pc', best.pc); palette.style.setProperty('--pot', Math.floor(best.pot) + 'px');
