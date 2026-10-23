@@ -138,6 +138,7 @@
     <div class="actions">
       <button class="btn" id="again">再玩一次</button>
       <button class="btn alt" id="next">快一點 ➜</button>
+      <a class="btn home" href="../">🏠 回選單</a>
     </div>
   </div>
 </div>
@@ -152,10 +153,12 @@
     number: { icon: '🔢', label: '數字' },
   };
   const ANIMALS = [['🐰','兔子'],['🐸','青蛙'],['🐻','小熊'],['🐷','小豬'],['🐱','小貓'],['🐶','小狗'],['🐵','猴子'],['🐥','小雞']];
+  // In mole mode a bunny friend (not to be tapped) pops up now and then; `friend` is how often, by speed.
+  const FRIEND = { key: 'friend', html: '<span class="emo">🐰</span>', small: '🐰', name: '小兔子' };
   const SPEEDS = [
-    { label: '慢慢', upMs: 2600, every: 1100, maxUp: 2 },
-    { label: '普通', upMs: 1900, every: 900,  maxUp: 2 },
-    { label: '快快', upMs: 1300, every: 700,  maxUp: 3 },
+    { label: '慢慢', upMs: 2600, every: 1100, maxUp: 2, friend: 0.15 },
+    { label: '普通', upMs: 1900, every: 900,  maxUp: 2, friend: 0.25 },
+    { label: '快快', upMs: 1300, every: 700,  maxUp: 3, friend: 0.30 },
   ];
 
   const $ = id => document.getElementById(id);
@@ -196,19 +199,20 @@
     return critterFor('number', 1 + Math.floor(Math.random() * 9));
   }
   function pickDecoy() {
+    if (state.mode === 'mole') return FRIEND;
     if (state.mode === 'animal') return critterFor('animal', rand(ANIMALS.filter(a => a[0] !== state.target.key)));
     const nums = [1,2,3,4,5,6,7,8,9].filter(n => 'n' + n !== state.target.key);
     return critterFor('number', rand(nums));
   }
   function renderAsk() {
     const t = state.target;
-    $('ask').innerHTML = state.mode === 'number'
-      ? `敲 <span class="badge">${t.name}</span>`
+    $('ask').innerHTML = state.mode === 'number' ? `敲 <span class="badge">${t.name}</span>`
+      : state.mode === 'mole' ? `敲 <span class="emo">${t.small}</span>，不要敲 <span class="emo">${FRIEND.small}</span>`
       : `敲 <span class="emo">${t.small}</span>`;
-    $('ask').setAttribute('aria-label', `敲${t.name}`);
+    $('ask').setAttribute('aria-label', state.mode === 'mole' ? `敲${t.name}，不要敲${FRIEND.name}` : `敲${t.name}`);
   }
   function sayTarget() {
-    say(state.mode === 'mole' ? '敲地鼠！' : state.mode === 'number' ? `敲數字 ${state.target.name}！` : `敲${state.target.name}！`);
+    say(state.mode === 'mole' ? '敲地鼠！小兔子是好朋友，不要敲喔！' : state.mode === 'number' ? `敲數字 ${state.target.name}！` : `敲${state.target.name}！`);
   }
 
   /* ---------- holes ---------- */
@@ -249,8 +253,9 @@
     const upCount = holes.filter(h => h.up).length;
     const free = holes.filter(h => !h.busy);
     if (upCount >= cfg.maxUp || !free.length) return;
-    // Targets show up about half the time, and never more than two decoys in a row.
-    const wantTarget = state.mode === 'mole' || state.sinceTarget >= 2 || Math.random() < 0.5;
+    // Targets show up about half the time (moles: all but the bunny's share), and never more than two decoys in a row.
+    const targetOdds = state.mode === 'mole' ? 1 - cfg.friend : 0.5;
+    const wantTarget = state.sinceTarget >= 2 || Math.random() < targetOdds;
     state.sinceTarget = wantTarget ? 0 : state.sinceTarget + 1;
     popUp(rand(free), wantTarget ? state.target : pickDecoy());
   }
@@ -266,8 +271,10 @@
       hide(h, 350);
       if (state.hits >= GOAL) finish();
     } else {
-      state.wrong++; h.hit = true; // resolved: ignore further taps while it sinks
+      h.hit = true; // resolved: ignore further taps while it sinks
       h.el.classList.add('nope'); sfx.miss();
+      // Tapping the bunny friend gets a gentle word but doesn't count against the stars.
+      if (h.data === FRIEND) say('哎呀，那是小兔子'); else state.wrong++;
       hide(h, 350);
     }
   }

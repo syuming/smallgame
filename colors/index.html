@@ -104,6 +104,7 @@
     <div class="actions">
       <button class="btn" id="again">再玩一次</button>
       <button class="btn alt" id="next">下一關 ➜</button>
+      <a class="btn home" href="../">🏠 回選單</a>
     </div>
   </div>
 </div>
@@ -114,15 +115,17 @@
   // Each color: basket colors plus things a 5-year-old knows to be that color.
   // An emoji's look differs by platform, so only items that are plainly this color everywhere are listed —
   // checked against Android's Noto Color Emoji, where 🦋 is an orange monarch, ☂️ is blue, 🔮 is half blue, and 🐸 🐢 🍎 lean yellow or orange.
+  // Also left out: 🫐 (drawn purple on some Android phones, and real blueberries look purple to many kids) and
+  // 🍏 (yellow-green on some platforms). Every color keeps at least `each` (3) items.
   const COLORS = {
     red:    { name: '紅色', c: '#e94848', deep: '#b92f2f', fg: '#ffffff',
               items: [['🍓','草莓'],['🍒','櫻桃'],['🍅','番茄'],['🚒','消防車'],['🌹','玫瑰花'],['🎈','氣球'],['🐞','瓢蟲'],['❤️','愛心']] },
     yellow: { name: '黃色', c: '#ffc21a', deep: '#d99a00', fg: '#1e2a4a',
               items: [['🍌','香蕉'],['🍋','檸檬'],['🌻','向日葵'],['🐥','小雞'],['⭐','星星'],['🌽','玉米'],['💛','愛心']] },
     green:  { name: '綠色', c: '#36b45a', deep: '#23853f', fg: '#ffffff',
-              items: [['🥦','花椰菜'],['🍀','幸運草'],['🥒','小黃瓜'],['🍏','青蘋果'],['🌲','大樹'],['💚','愛心']] },
+              items: [['🥦','花椰菜'],['🍀','幸運草'],['🥒','小黃瓜'],['🌲','大樹'],['💚','愛心']] },
     blue:   { name: '藍色', c: '#2f7fe0', deep: '#1f5bab', fg: '#ffffff',
-              items: [['🐳','鯨魚'],['💧','水滴'],['🫐','藍莓'],['🧢','帽子'],['👖','牛仔褲'],['💙','愛心']] },
+              items: [['🐳','鯨魚'],['💧','水滴'],['🧢','帽子'],['👖','牛仔褲'],['💙','愛心']] },
     purple: { name: '紫色', c: '#9257d6', deep: '#6b3aa6', fg: '#ffffff',
               items: [['🍇','葡萄'],['🍆','茄子'],['💜','愛心']] },
     orange: { name: '橘色', c: '#ff8a2a', deep: '#cc6612', fg: '#ffffff',
