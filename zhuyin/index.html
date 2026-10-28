@@ -76,6 +76,7 @@
   <header class="bar">
     <a class="chip" href="../" aria-label="回遊戲選單"><span class="emo">🏠</span></a>
     <h1 class="brand">ㄅㄆㄇ配對</h1>
+    <div class="group" id="groups" role="group" aria-label="選擇聲母或韻母"></div>
     <div class="group" id="modes" role="group" aria-label="選擇模式"></div>
     <div class="group" id="levels" role="group" aria-label="選擇難度"></div>
     <div class="group">
@@ -106,24 +107,40 @@
 <script src="../shared/kit.js"></script>
 <script>
 (() => {
-  // Each initial with something a 5-year-old knows whose name starts with it.
+  // Each symbol with something a 5-year-old knows: initials (and ㄧ ㄨ ㄩ ㄜ ㄞ ㄦ) start the word; the other finals
+  // are clearly heard in it. The full spelling keeps every question unambiguous: a wrong option never appears in
+  // the question word, and a wrong picture never contains the asked-for symbol.
   const WORDS = [
-    ['ㄅ', '🍪', '餅乾'], ['ㄆ', '🍇', '葡萄'], ['ㄇ', '🐴', '馬'],     ['ㄈ', '✈️', '飛機'],
-    ['ㄉ', '🐘', '大象'], ['ㄊ', '🐰', '兔子'], ['ㄋ', '🐮', '牛'],     ['ㄌ', '🐯', '老虎'],
-    ['ㄍ', '🐶', '狗'],   ['ㄎ', '🦖', '恐龍'], ['ㄏ', '🐵', '猴子'],   ['ㄐ', '🐔', '雞'],
-    ['ㄑ', '🐧', '企鵝'], ['ㄒ', '🍉', '西瓜'], ['ㄓ', '🐷', '豬'],     ['ㄔ', '🚢', '船'],
-    ['ㄕ', '🦁', '獅子'], ['ㄖ', '🍖', '肉'],   ['ㄗ', '👄', '嘴巴'],   ['ㄘ', '🍓', '草莓'],
-    ['ㄙ', '☂️', '傘'],
-  ].map(([zy, emoji, word]) => ({ zy, emoji, word }));
+    ['ㄅ', '🍪', '餅乾', 'ㄅㄧㄥˇ ㄍㄢ'], ['ㄆ', '🍇', '葡萄', 'ㄆㄨˊ ㄊㄠˊ'], ['ㄇ', '🐴', '馬', 'ㄇㄚˇ'],
+    ['ㄈ', '✈️', '飛機', 'ㄈㄟ ㄐㄧ'],   ['ㄉ', '🐘', '大象', 'ㄉㄚˋ ㄒㄧㄤˋ'], ['ㄊ', '🐰', '兔子', 'ㄊㄨˋ ㄗ˙'],
+    ['ㄋ', '🐮', '牛', 'ㄋㄧㄡˊ'],      ['ㄌ', '🐯', '老虎', 'ㄌㄠˇ ㄏㄨˇ'],  ['ㄍ', '🐶', '狗', 'ㄍㄡˇ'],
+    ['ㄎ', '🦖', '恐龍', 'ㄎㄨㄥˇ ㄌㄨㄥˊ'], ['ㄏ', '🐵', '猴子', 'ㄏㄡˊ ㄗ˙'], ['ㄐ', '🐔', '雞', 'ㄐㄧ'],
+    ['ㄑ', '🐧', '企鵝', 'ㄑㄧˋ ㄜˊ'],   ['ㄒ', '🍉', '西瓜', 'ㄒㄧ ㄍㄨㄚ'],  ['ㄓ', '🐷', '豬', 'ㄓㄨ'],
+    ['ㄔ', '🚢', '船', 'ㄔㄨㄢˊ'],      ['ㄕ', '🦁', '獅子', 'ㄕ ㄗ˙'],     ['ㄖ', '🍖', '肉', 'ㄖㄡˋ'],
+    ['ㄗ', '👄', '嘴巴', 'ㄗㄨㄟˇ ㄅㄚ˙'], ['ㄘ', '🍓', '草莓', 'ㄘㄠˇ ㄇㄟˊ'], ['ㄙ', '☂️', '傘', 'ㄙㄢˇ'],
+    ['ㄧ', '👕', '衣服', 'ㄧ ㄈㄨˊ'],    ['ㄨ', '🐢', '烏龜', 'ㄨ ㄍㄨㄟ'],   ['ㄩ', '🐟', '魚', 'ㄩˊ'],
+    ['ㄚ', '🦆', '鴨子', 'ㄧㄚ ㄗ˙'],    ['ㄛ', '🔥', '火', 'ㄏㄨㄛˇ'],      ['ㄜ', '🦢', '鵝', 'ㄜˊ'],
+    ['ㄝ', '🦋', '蝴蝶', 'ㄏㄨˊ ㄉㄧㄝˊ'], ['ㄞ', '❤️', '愛心', 'ㄞˋ ㄒㄧㄣ'], ['ㄟ', '🐚', '貝殼', 'ㄅㄟˋ ㄎㄜˊ'],
+    ['ㄠ', '🐱', '貓', 'ㄇㄠ'],         ['ㄡ', '✋', '手', 'ㄕㄡˇ'],       ['ㄢ', '🍚', '飯', 'ㄈㄢˋ'],
+    ['ㄣ', '🚪', '門', 'ㄇㄣˊ'],        ['ㄤ', '🍬', '糖果', 'ㄊㄤˊ ㄍㄨㄛˇ'], ['ㄥ', '🐝', '蜜蜂', 'ㄇㄧˋ ㄈㄥ'],
+    ['ㄦ', '👂', '耳朵', 'ㄦˇ ㄉㄨㄛ˙'],
+  ].map(([zy, emoji, word, spell]) => ({ zy, emoji, word, spell, lead: spell.startsWith(zy) }));
+  // A wrong option must not be another right answer to the question q.
+  const fair = (q, o) => !q.spell.includes(o.zy) && !o.spell.includes(q.zy);
 
   const MODES = {
     pic: { label: '看圖找注音', icon: '<span class="emo">🍇</span>' },
     zy:  { label: '看注音找圖', icon: '<span class="zy">ㄆ</span>' },
   };
+  const GROUPS = {
+    sm: { label: '聲母', icon: '<span class="zy">ㄅ</span>', words: WORDS.slice(0, 21) },  // ㄅ–ㄙ
+    ym: { label: '韻母', icon: '<span class="zy">ㄚ</span>', words: WORDS.slice(21) },     // ㄧㄨㄩ, ㄚ–ㄦ
+  };
+  // Pool sizes per group: initials ㄅ–ㄌ / ㄅ–ㄒ / all 21; medials and finals ㄧ–ㄞ / ㄧ–ㄢ / all 16.
   const LEVELS = [
-    { label: '簡單', pool: 8,  options: 3 },  // ㄅ–ㄌ
-    { label: '普通', pool: 14, options: 3 },  // ㄅ–ㄒ
-    { label: '挑戰', pool: 21, options: 4 },  // ㄅ–ㄙ
+    { label: '簡單', pool: { sm: 8,  ym: 8 },  options: 3 },
+    { label: '普通', pool: { sm: 14, ym: 12 }, options: 3 },
+    { label: '挑戰', pool: { sm: 21, ym: 16 }, options: 4 },
   ];
   const ROUND = 8;
 
@@ -132,6 +149,7 @@
   const store = Kit.store('zhuyin');
   const state = {
     mode: MODES[store.get('mode', 'pic')] ? store.get('mode', 'pic') : 'pic',
+    group: GROUPS[store.get('group', 'sm')] ? store.get('group', 'sm') : 'sm',
     level: Math.min(LEVELS.length - 1, Math.max(0, store.get('level', 0) | 0)),
     sound: store.get('sound', true) !== false,
     queue: [], current: null, done: 0, wrong: 0, lock: false,
@@ -153,7 +171,7 @@
   /* ---------- rounds ---------- */
   function newGame() {
     $('win').hidden = true; stopConfetti();
-    const pool = WORDS.slice(0, LEVELS[state.level].pool);
+    const pool = levelPool();
     Object.assign(state, { queue: shuffle([...pool]).slice(0, ROUND), done: 0, wrong: 0, lock: false });
     tray.innerHTML = '';
     for (let i = 0; i < ROUND; i++) { const s = document.createElement('div'); s.className = 'slot'; tray.append(s); }
@@ -161,10 +179,11 @@
     ask();
   }
 
+  function levelPool() { return GROUPS[state.group].words.slice(0, LEVELS[state.level].pool[state.group]); }
   function ask() {
     const lv = LEVELS[state.level];
     const q = state.current = state.queue[state.done];
-    const pool = WORDS.slice(0, lv.pool).filter(w => w !== q);
+    const pool = levelPool().filter(w => w !== q && fair(q, w));
     const options = shuffle([q, ...shuffle(pool).slice(0, lv.options - 1)]);
 
     qEl.classList.remove('right');
@@ -189,7 +208,8 @@
   }
   function prompt() {
     const q = state.current;
-    say(state.mode === 'pic' ? `${q.word}，是哪一個注音？` : `${q.zy}，找一找，哪一個是${q.zy}開頭？`);
+    if (state.mode === 'pic') say(q.lead ? `${q.word}，是哪一個注音？` : `${q.word}，裡面有哪一個注音？`);
+    else say(q.lead ? `${q.zy}，找一找，哪一個是${q.zy}開頭？` : `${q.zy}，找一找，哪一個有${q.zy}？`);
   }
   qEl.addEventListener('click', () => { audio(); prompt(); });
 
@@ -218,15 +238,18 @@
   function win() {
     const stars = state.wrong <= 2 ? 3 : 2; // always encouraging: at least 2 stars
     $('stars').innerHTML = Kit.stars(stars);
-    $('next').hidden = state.level >= LEVELS.length - 1;
+    $('next').hidden = state.level >= LEVELS.length - 1 && state.group === 'ym';
     $('win').hidden = false;
     sfx.win(); say('好棒！全部答對了！');
     startConfetti();
     $('again').focus();
   }
   $('again').addEventListener('click', newGame);
+  // After the hardest initials comes the easiest level of the finals.
   $('next').addEventListener('click', () => {
-    state.level = Math.min(LEVELS.length - 1, state.level + 1); store.set('level', state.level); newGame();
+    if (state.level < LEVELS.length - 1) state.level++;
+    else { state.group = 'ym'; state.level = 0; store.set('group', state.group); }
+    store.set('level', state.level); newGame();
   });
 
   /* ---------- toolbar ---------- */
@@ -236,6 +259,13 @@
     b.innerHTML = `${m.icon}<span class="txt">${m.label}</span>`;
     b.addEventListener('click', () => { state.mode = key; store.set('mode', key); newGame(); });
     $('modes').append(b);
+  }
+  for (const [key, g] of Object.entries(GROUPS)) {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.dataset.key = key; b.setAttribute('aria-label', g.label);
+    b.innerHTML = `${g.icon}<span class="txt">${g.label}</span>`;
+    b.addEventListener('click', () => { state.group = key; store.set('group', key); newGame(); });
+    $('groups').append(b);
   }
   LEVELS.forEach((lv, i) => {
     const b = document.createElement('button');
@@ -251,6 +281,7 @@
   });
   $('restart').addEventListener('click', newGame);
   function syncToolbar() {
+    [...$('groups').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.key === state.group));
     [...$('modes').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.key === state.mode));
     [...$('levels').children].forEach((b, i) => b.setAttribute('aria-pressed', i === state.level));
     $('sound').setAttribute('aria-pressed', state.sound);
