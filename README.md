@@ -26,6 +26,7 @@
 ```
 smallgame/
 ├── index.html            遊戲選單首頁
+├── parents.html          家長專區（家長輸入數字後才顯示：學習重點、分享、意見回饋、隱私權政策連結）
 ├── privacy.html          隱私權政策（Google Play 上架用）
 ├── manifest.webmanifest  首頁的「加入主畫面」設定
 ├── icons/                首頁圖示
