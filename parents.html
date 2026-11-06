@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>家長專區｜小小遊戲屋</title>
+<meta name="theme-color" content="#ffd34e">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+  /* Parents' corner: a simple number gate (reading Chinese numerals keeps young children out), then
+     sharing, feedback, what each game teaches, and the privacy policy. Same sunny reading layout as privacy.html. */
+  :root {
+    --sun: #ffd34e;
+    --sun-deep: #f5b82e;
+    --cobalt: #2b59c3;
+    --cobalt-deep: #1c3f94;
+    --paper: #ffffff;
+    --cream: #fff7dc;
+    --ink: #1e2a4a;
+    --leaf: #2fb36f;
+    --berry: #e94848;
+    --font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background-color: var(--sun);
+    background-image: radial-gradient(var(--sun-deep) 2px, transparent 2.5px);
+    background-size: 28px 28px;
+    color: var(--ink);
+    font-family: var(--font);
+    line-height: 1.75;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding-block: 24px 48px; }
+  .home {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px;
+    background: var(--paper); color: var(--cobalt-deep); font-weight: 700; text-decoration: none;
+    box-shadow: 0 5px 0 var(--sun-deep);
+  }
+  .card { margin-top: 20px; background: var(--paper); border-radius: 24px; padding: 24px clamp(18px, 5vw, 40px) 28px; box-shadow: 0 8px 0 var(--sun-deep); }
+  h1 { margin: 0; color: var(--cobalt-deep); font-size: clamp(1.7rem, 6vw, 2.2rem); line-height: 1.3; }
+  h2 { margin: 0 0 .4em; color: var(--cobalt-deep); font-size: 1.25rem; line-height: 1.4; }
+  p, li { overflow-wrap: anywhere; }
+  p { margin: .5em 0; }
+  a { color: var(--cobalt); }
+  a:focus-visible, button:focus-visible, summary:focus-visible { outline: 4px solid var(--cobalt); outline-offset: 3px; }
+  .lead { margin-top: 8px; opacity: .8; }
+
+  /* Gate */
+  .gate { text-align: center; }
+  .ask { font-weight: 700; margin: 12px 0 4px; }
+  .word { font-size: clamp(2.2rem, 10vw, 3rem); font-weight: 900; color: var(--cobalt-deep); letter-spacing: .1em; line-height: 1.3; }
+  .slots { display: flex; justify-content: center; gap: 12px; margin: 14px 0 18px; }
+  .slot { width: 56px; height: 64px; border-radius: 14px; border: 3px solid var(--sun-deep); background: var(--cream); display: grid; place-items: center; font-size: 2rem; font-weight: 900; }
+  .slots.bad { animation: shake .4s; }
+  .slots.bad .slot { border-color: var(--berry); }
+  @keyframes shake { 25% { translate: -8px 0; } 75% { translate: 8px 0; } }
+  .pad { display: grid; grid-template-columns: repeat(3, 72px); gap: 10px; justify-content: center; }
+  .pad button {
+    height: 60px; border: 0; border-radius: 16px; background: var(--cream); color: var(--ink);
+    font: 900 1.6rem var(--font); box-shadow: 0 4px 0 var(--sun-deep); cursor: pointer;
+  }
+  .pad button:active { translate: 0 3px; box-shadow: 0 1px 0 var(--sun-deep); }
+  .pad .zero { grid-column: 2; }
+  .hint { margin-top: 16px; font-size: .9rem; opacity: .7; }
+
+  /* Content */
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 10px 18px; border: 0; border-radius: 999px;
+    background: var(--cobalt); color: var(--paper); font: 700 1rem var(--font); text-decoration: none; cursor: pointer;
+    box-shadow: 0 4px 0 var(--cobalt-deep);
+  }
+  .btn.line { background: #06c755; box-shadow: 0 4px 0 #04913e; }
+  .btn.soft { background: var(--cream); color: var(--cobalt-deep); box-shadow: 0 4px 0 var(--sun-deep); }
+  .btn:active { translate: 0 3px; box-shadow: none; }
+  .msg { margin: 10px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--cream); font-weight: 700; }
+  .games { display: grid; gap: 10px; margin-top: 8px; }
+  details { border-radius: 16px; background: var(--cream); padding: 4px 16px; }
+  summary { cursor: pointer; padding: 8px 0; font-weight: 700; font-size: 1.05rem; list-style: none; display: flex; align-items: center; gap: 10px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "＋"; margin-left: auto; color: var(--cobalt); font-weight: 900; }
+  details[open] summary::after { content: "－"; }
+  summary .e { font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; font-size: 1.5rem; }
+  details dl { margin: 0 0 12px; }
+  details dt { font-weight: 700; color: var(--cobalt-deep); margin-top: 6px; }
+  details dd { margin: 0; }
+  ul { padding-left: 1.3em; margin: .4em 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="home" href="./">🏠 回到遊戲屋</a>
+
+  <section class="card gate" id="gate" aria-labelledby="gate-title">
+    <h1 id="gate-title">家長專區</h1>
+    <p class="ask">請家長輸入下面這個數字：</p>
+    <div class="word" id="word" aria-live="polite"></div>
+    <div class="slots" id="slots" aria-hidden="true"><span class="slot"></span><span class="slot"></span></div>
+    <div class="pad" id="pad">
+      <button type="button">1</button><button type="button">2</button><button type="button">3</button>
+      <button type="button">4</button><button type="button">5</button><button type="button">6</button>
+      <button type="button">7</button><button type="button">8</button><button type="button">9</button>
+      <button type="button" class="zero">0</button>
+    </div>
+    <p class="hint">這一步是為了讓小朋友留在遊戲裡，不會不小心點到外部連結。</p>
+  </section>
+
+  <div id="content" hidden>
+    <section class="card">
+      <h1>家長專區</h1>
+      <p class="lead">謝謝你陪孩子一起玩！這裡有每款遊戲的學習重點、分享方式和意見回饋。</p>
+    </section>
+
+    <section class="card" aria-labelledby="share-title">
+      <h2 id="share-title">📣 分享給親友</h2>
+      <p>覺得好玩的話，歡迎分享給有小小孩的朋友。小小遊戲屋沒有廣告、沒有內購，也不收集任何資料。</p>
+      <div class="btns">
+        <button type="button" class="btn" id="share" hidden>分享…</button>
+        <a class="btn line" id="line" href="#">用 LINE 傳給朋友</a>
+        <button type="button" class="btn soft" id="copy">複製下載連結</button>
+      </div>
+      <p class="msg" id="copied" role="status" hidden></p>
+    </section>
+
+    <section class="card" aria-labelledby="games-title">
+      <h2 id="games-title">🎓 每款遊戲在練習什麼</h2>
+      <p>所有遊戲都沒有倒數計時、答錯不扣分，過關至少 2 顆星。孩子卡住時，與其直接告訴答案，不如問「你覺得是哪一個？」讓他自己再試一次。</p>
+      <div class="games">
+        <details><summary><span class="e">🐶</span>翻翻樂</summary><dl>
+          <dt>練習</dt><dd>短期記憶、專注力，配對時會唸出名稱，認識動物、水果、交通工具。</dd>
+          <dt>陪玩小建議</dt><dd>翻到卡片時一起說出名字：「這是小狗，剛剛另一隻小狗在哪裡？」</dd>
+        </dl></details>
+        <details><summary><span class="e">🐹</span>敲敲地鼠</summary><dl>
+          <dt>練習</dt><dd>反應與手眼協調；「動物」「數字」模式練習看清楚再按，學習分辨與認識 1–9。</dd>
+          <dt>陪玩小建議</dt><dd>先玩「慢慢」速度，熟悉後再換「數字」模式，請孩子邊敲邊唸出數字。</dd>
+        </dl></details>
+        <details><summary><span class="e">🍎</span>顏色小籃子</summary><dl>
+          <dt>練習</dt><dd>認識紅黃藍綠紫橘六種顏色、分類概念，以及拖曳的小肌肉控制。</dd>
+          <dt>陪玩小建議</dt><dd>玩完找找家裡「還有什麼是紅色的？」，把遊戲延伸到生活中。</dd>
+        </dl></details>
+        <details><summary><span class="e">🦁</span>拼拼樂</summary><dl>
+          <dt>練習</dt><dd>空間概念、部分與整體的關係、觀察形狀與顏色的線索。</dd>
+          <dt>陪玩小建議</dt><dd>從 4 片開始；提醒孩子看淡淡的底圖：「這片有獅子的耳朵，應該在上面還是下面？」</dd>
+        </dl></details>
+        <details><summary><span class="e">🧺</span>接水果</summary><dl>
+          <dt>練習</dt><dd>手眼協調、追蹤移動中的物體、預測落點。</dd>
+          <dt>陪玩小建議</dt><dd>挑戰模式會掉下毛毛蟲，可以和孩子約定「只接水果」，練習判斷。</dd>
+        </dl></details>
+        <details><summary><span class="e">🍇</span>ㄅㄆㄇ配對</summary><dl>
+          <dt>練習</dt><dd>認識全部 37 個注音符號，把符號和聲音、熟悉的東西連結起來（ㄆ 葡萄、ㄚ 鴨子）。</dd>
+          <dt>陪玩小建議</dt><dd>答對後一起把聲音拉長唸一次「ㄆ——葡萄」，再想想還有什麼東西也是這個音開頭。</dd>
+        </dl></details>
+        <details><summary><span class="e">🕳️</span>洞洞吃光光</summary><dl>
+          <dt>練習</dt><dd>比較大小、由小到大的順序概念，以及用搖桿控制方向。</dd>
+          <dt>陪玩小建議</dt><dd>問孩子「現在可以吃房子了嗎？為什麼還不行？」，讓他說說看大小的差別。</dd>
+        </dl></details>
+        <details><summary><span class="e">🍋</span>消消樂</summary><dl>
+          <dt>練習</dt><dd>觀察排列、找規律、事先想一步再動手。沒有步數限制，可以慢慢想。</dd>
+          <dt>陪玩小建議</dt><dd>停下來 6 秒會出現提示；可以先等孩子自己找，再一起看提示的位置。</dd>
+        </dl></details>
+        <details><summary><span class="e">🦖</span>跳跳恐龍</summary><dl>
+          <dt>練習</dt><dd>節奏感與時機判斷；撞到也不會失敗，適合剛接觸動作遊戲的孩子。</dd>
+          <dt>陪玩小建議</dt><dd>和孩子一起數「預備——跳！」，幫助他抓到時機。</dd>
+        </dl></details>
+        <details><summary><span class="e">🔢</span>數一數</summary><dl>
+          <dt>練習</dt><dd>一對一點數、數量與數字的對應、5 個一列的十格數板概念，以及 10 以內加法。</dd>
+          <dt>陪玩小建議</dt><dd>鼓勵孩子每數一個就點一下，不要用猜的；加法題可以拿真的積木或餅乾一起算。</dd>
+        </dl></details>
+        <details><summary><span class="e">🎨</span>著色本</summary><dl>
+          <dt>練習</dt><dd>認識顏色、自由創作與表達。作品會自動保存。</dd>
+          <dt>陪玩小建議</dt><dd>塗完請孩子介紹他的作品：「為什麼小貓是藍色的？」沒有對錯，聽他說就好。</dd>
+        </dl></details>
+        <details><summary><span class="e">✏️</span>描描寫寫</summary><dl>
+          <dt>練習</dt><dd>依教育部筆順描寫數字 0–9 和 37 個注音符號，為握筆寫字做準備。</dd>
+          <dt>陪玩小建議</dt><dd>描完一個字後，可以在紙上用手指或筆再寫一次，從綠點的起筆位置開始。</dd>
+        </dl></details>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="tips-title">
+      <h2 id="tips-title">🔊 沒有聲音？</h2>
+      <p>遊戲會唸出題目與鼓勵的話。如果沒有聲音，請到手機的「設定 → 文字轉語音輸出」，在 Google 語音服務中下載「中文（台灣）」語音。</p>
+    </section>
+
+    <section class="card" aria-labelledby="fb-title">
+      <h2 id="fb-title">💬 意見回饋</h2>
+      <p>發現問題、或希望有什麼新遊戲，都歡迎告訴我們：</p>
+      <div class="btns">
+        <a class="btn" id="review" href="#">在 Google Play 留下評論</a>
+        <a class="btn soft" href="https://github.com/syuming/smallgame/issues">到 GitHub 回報問題</a>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="pv-title">
+      <h2 id="pv-title">🔒 隱私</h2>
+      <p>不需要註冊、不收集任何個人資料、沒有廣告和內購，所有遊戲都可以離線玩。</p>
+      <div class="btns"><a class="btn soft" href="privacy.html">閱讀完整的隱私權政策</a></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const PLAY = 'https://play.google.com/store/apps/details?id=io.github.syuming.smallgame';
+  const SHARE_TEXT = '推薦「小小遊戲屋」：給 3–6 歲孩子的 12 款益智小遊戲（注音、數數、描字、拼圖…），無廣告、無內購、可離線玩。';
+  const KEY = 'smallgame.parentsOk';
+
+  const $ = id => document.getElementById(id);
+  const gate = $('gate'), content = $('content'), slots = $('slots');
+  const DIGIT = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+  let answer = '', typed = '';
+
+  function open() {
+    gate.hidden = true; content.hidden = false;
+    try { sessionStorage.setItem(KEY, '1'); } catch (e) {}
+  }
+  function ask() {
+    const n = 21 + Math.floor(Math.random() * 69);           // 21–89: two digits, always written with 十
+    const t = Math.floor(n / 10), u = n % 10;
+    answer = String(n); typed = '';
+    $('word').textContent = DIGIT[t] + '十' + DIGIT[u];
+    draw();
+  }
+  function draw() {
+    slots.querySelectorAll('.slot').forEach((s, i) => { s.textContent = typed[i] || ''; });
+  }
+  $('pad').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b || typed.length >= 2) return;
+    typed += b.textContent; draw();
+    if (typed.length < 2) return;
+    if (typed === answer) { open(); return; }
+    slots.classList.remove('bad'); void slots.offsetWidth; slots.classList.add('bad');
+    setTimeout(() => { slots.classList.remove('bad'); ask(); }, 500);
+  });
+
+  let ok = false;
+  try { ok = sessionStorage.getItem(KEY) === '1'; } catch (e) {}
+  if (ok) open(); else ask();
+
+  // Sharing. Web Share where the browser has it; LINE (widely used in Taiwan) and copy-link always work,
+  // including inside the Android app's WebView, which has no Web Share.
+  $('line').href = 'https://line.me/R/share?text=' + encodeURIComponent(SHARE_TEXT + '\n' + PLAY);
+  $('review').href = PLAY;
+  if (navigator.share) {
+    const sb = $('share');
+    sb.hidden = false;
+    sb.addEventListener('click', () => {
+      navigator.share({ title: '小小遊戲屋', text: SHARE_TEXT, url: PLAY }).catch(() => {});
+    });
+  }
+  function note(text) { const m = $('copied'); m.textContent = text; m.hidden = false; }
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let done = false;
+    try { done = document.execCommand('copy'); } catch (e) {}
+    ta.remove();
+    return done;
+  }
+  $('copy').addEventListener('click', async () => {
+    const text = SHARE_TEXT + '\n' + PLAY;
+    let done = false;
+    try { await navigator.clipboard.writeText(text); done = true; } catch (e) { done = fallbackCopy(text); }
+    note(done ? '已複製！可以貼到 LINE、Messenger 或簡訊裡。' : '請手動複製這個連結：' + PLAY);
+  });
+})();
+</script>
+</body>
+</html>

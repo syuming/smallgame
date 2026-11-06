@@ -1,6 +1,6 @@
 // Copies the website into www/ for the Android app (Capacitor's webDir).
 // The repo root is also the GitHub Pages site, so it holds files the app must not ship
-// (node_modules, android/, this script); only the menu, shared files, the privacy page and each game folder are copied.
+// (node_modules, android/, this script); only the menu, shared files, the parents' and privacy pages and each game folder are copied.
 // Google Fonts links are removed from the copied HTML so the app never goes online; Android's built-in fonts are used instead.
 import { cpSync, existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,7 +14,7 @@ const SKIP = new Set(['node_modules', 'android', 'www', 'scripts']);
 const games = readdirSync(root).filter(name =>
   !name.startsWith('.') && !SKIP.has(name) &&
   statSync(join(root, name)).isDirectory() && existsSync(join(root, name, 'index.html')));
-const entries = ['index.html', 'privacy.html', 'manifest.webmanifest', 'icons', 'shared', ...games];
+const entries = ['index.html', 'parents.html', 'privacy.html', 'manifest.webmanifest', 'icons', 'shared', ...games];
 
 rmSync(out, { recursive: true, force: true });
 for (const name of entries) cpSync(join(root, name), join(out, name), { recursive: true });
@@ -23,7 +23,7 @@ const FONT_LINK = /^[ \t]*<link[^>]+(fonts\.googleapis\.com|fonts\.gstatic\.com)
 // Capacitor's local server answers every extension-less path (such as memory/ or ../) with the menu's index.html
 // instead of that folder's, so folder links are spelled out as .../index.html in the app copy.
 const FOLDER_LINK = /href="((?![a-z]+:|\/|#)[^"]*\/)"/g;
-for (const page of ['index.html', 'privacy.html', ...games.map(g => join(g, 'index.html'))]) {
+for (const page of ['index.html', 'parents.html', 'privacy.html', ...games.map(g => join(g, 'index.html'))]) {
   const file = join(out, page);
   writeFileSync(file, readFileSync(file, 'utf8').replace(FONT_LINK, '').replace(FOLDER_LINK, 'href="$1index.html"'));
 }
