@@ -40,6 +40,7 @@
   .chip.tagged .emo { font-size: 1.55rem; }
   .chip .tag { font-weight: 900; font-size: .75rem; line-height: 1; color: var(--cobalt-deep); }
   .chip:disabled { opacity: .35; cursor: default; box-shadow: none; transform: none; }
+  .chip[aria-pressed="true"] .tag { color: var(--paper); }
   @keyframes bounce { 0%,100% { scale: 1; } 40% { scale: 1.06; } }
   .say { position: absolute; left: 50%; top: -18px; translate: -50% 0; padding: 4px 16px; border-radius: 999px; background: var(--cobalt); color: var(--paper); font-weight: 900; font-size: 1.1rem; white-space: nowrap; }
 
@@ -50,7 +51,21 @@
     font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; color: var(--cobalt-deep);
   }
   .slot.full { background: var(--paper); border: 3px solid var(--leaf); animation: pop .4s ease; }
+  .count { align-self: center; padding: 4px 14px; border-radius: 999px; background: var(--paper); color: var(--cobalt-deep); font-weight: 900; font-size: 1.05rem; white-space: nowrap; }
+  .panel .note { margin: 0 0 8px; font-weight: 900; font-size: 1.2rem; color: var(--cobalt-deep); }
   @media (max-width: 560px) { .slot { width: 40px; height: 40px; font-size: 1.2rem; } }
+  /* A phone held sideways has no height to spare: keep the toolbar to one row so the pad does not cover the progress tray. */
+  @media (max-height: 480px) {
+    .bar { gap: 6px 10px; }
+    .brand { font-size: 1.3rem; }
+    .chip { min-width: 52px; height: 52px; }
+    .chip .txt { display: none; }
+    .slot { width: 40px; height: 40px; font-size: 1.2rem; }
+  }
+  @media (max-height: 480px) and (max-width: 720px) {
+    .bar { justify-content: space-between; }
+    .brand { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  }
   @media (prefers-reduced-motion: reduce) { .pad.done svg, .slot.full, .pad .ring { animation: none; } .pad .ring { opacity: 0; } }
 </style>
 </head>
@@ -61,6 +76,7 @@
     <h1 class="brand">描描寫寫</h1>
     <div class="group" id="sets" role="group" aria-label="選擇要描的字"></div>
     <div class="group">
+      <button class="chip tagged" id="adv" aria-pressed="false" aria-label="進階：照順序全部寫完"><span class="emo">🌟</span><span class="tag">進階</span></button>
       <button class="chip tagged" id="redo" aria-label="這個字重描" disabled><span class="emo">↩️</span><span class="tag">重描</span></button>
       <button class="chip" id="sound" aria-pressed="true" aria-label="聲音開關"><span class="emo">🔊</span></button>
       <button class="chip tagged" id="restart" aria-label="換一組字"><span class="emo">🔄</span><span class="tag">換字</span></button>
@@ -74,13 +90,26 @@
 
 <div class="win" id="win" hidden>
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="winTitle">
-    <div class="big">✏️</div>
+    <div class="big" id="winIcon">✏️</div>
     <h2 id="winTitle">全部描好了！</h2>
+    <p class="note" id="winNote" hidden></p>
     <div class="stars" id="stars"></div>
     <div class="actions">
       <button class="btn" id="again">再描一組</button>
       <button class="btn alt" id="other">換描聲母 ➜</button>
       <a class="btn home" href="../">🏠 回選單</a>
+    </div>
+  </div>
+</div>
+
+<div class="win" id="ask" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="askTitle">
+    <div class="big">🔄</div>
+    <h2 id="askTitle">要從頭開始嗎？</h2>
+    <p class="note" id="askNote"></p>
+    <div class="actions">
+      <button class="btn" id="askNo">繼續寫</button>
+      <button class="btn alt" id="askYes">從頭開始</button>
     </div>
   </div>
 </div>
@@ -154,11 +183,23 @@
   const $ = id => document.getElementById(id);
   const desk = $('desk'), pad = $('pad'), progress = $('progress');
   const store = Kit.store('trace');
+  const savedPos = store.get('pos', {});
   const state = {
     set: SETS[store.get('set', 'num')] ? store.get('set', 'num') : 'num',
     sound: store.get('sound', true) !== false,
-    queue: [], done: 0, ch: null, strokes: [], k: 0, t: 0, tracing: false, lock: false,
+    adv: store.get('adv', false) === true,   // advanced: every character of the set, in order, with saved progress
+    pos: savedPos && typeof savedPos === 'object' ? savedPos : {},   // advanced: how many characters of each set are done
+    first: 0,   // advanced: index in the whole set of the current round's first character
+    queue: [], done: 0, ch: null, strokes: [], k: 0, t: 0, tracing: false, lock: false, nextTimer: 0,
   };
+  const allChars = () => Object.keys(SETS[state.set].chars);
+  function posOf() { const p = state.pos[state.set]; return Number.isInteger(p) && p >= 0 && p < allChars().length ? p : 0; }
+  function savePos(p) { state.pos[state.set] = p; store.set('pos', state.pos); }
+  // Rounds of ROUND characters; a leftover too short for its own round joins the last one (21 becomes 5, 5, 5, 6).
+  function rounds(n) {
+    const count = Math.max(1, Math.floor(n / ROUND));
+    return Array.from({ length: count }, (_, i) => [i * ROUND, i === count - 1 ? n : (i + 1) * ROUND]);
+  }
   const tone = (...args) => { if (state.sound) Kit.tone(...args); };
   const say = text => { if (state.sound) Kit.say(text, { rate: 0.85 }); };
   const sfx = {
@@ -278,18 +319,42 @@
     sfx.char(); say(`好棒！這是 ${state.ch}`);
     const slot = progress.children[state.done]; slot.textContent = state.ch; slot.classList.add('full');
     state.done++;
-    setTimeout(() => { state.lock = false; if (state.done >= ROUND) win(); else next(); }, 1600);
+    if (state.adv) {
+      const at = state.first + state.done, total = allChars().length;
+      savePos(at >= total ? 0 : at);   // a finished set starts over next time
+      showCount(at);
+      syncToolbar();
+    }
+    state.nextTimer = setTimeout(() => { state.lock = false; if (state.done >= state.queue.length) win(); else next(); }, 1600);
   }
 
   /* ---------- round flow ---------- */
   function newGame() {
-    $('win').hidden = true; Kit.confetti.stop();
-    const chars = Object.keys(SETS[state.set].chars).sort(() => Math.random() - 0.5);
-    Object.assign(state, { queue: chars.slice(0, ROUND), done: 0, lock: false });
+    clearTimeout(state.nextTimer);   // a character just finished must not advance the game that replaces this one
+    $('win').hidden = true; $('ask').hidden = true; Kit.confetti.stop();
+    const all = allChars();
+    let queue, done = 0, first = 0;
+    if (state.adv) {
+      const at = posOf(), [from, to] = rounds(all.length).find(([, end]) => at < end);
+      queue = all.slice(from, to); first = from; done = at - from;
+    } else {
+      queue = [...all].sort(() => Math.random() - 0.5).slice(0, ROUND);
+    }
+    Object.assign(state, { queue, first, done, lock: false });
     progress.innerHTML = '';
-    for (let i = 0; i < ROUND; i++) { const s = document.createElement('div'); s.className = 'slot'; progress.append(s); }
+    queue.forEach((ch, i) => {
+      const s = document.createElement('div'); s.className = i < done ? 'slot full' : 'slot';
+      if (i < done) s.textContent = ch;
+      progress.append(s);
+    });
+    if (state.adv) showCount(first + done);   // after the slots, so progress.children still lines up with them
     $('other').textContent = `換描${SETS[nextSet()].label} ➜`;
     syncToolbar(); next();
+  }
+  function showCount(at) {
+    let c = progress.querySelector('.count');
+    if (!c) { c = document.createElement('div'); c.className = 'count'; progress.append(c); }
+    c.textContent = `${SETS[state.set].label} ${at} / ${allChars().length}`;
   }
   function next() {
     state.ch = state.queue[state.done];
@@ -304,9 +369,18 @@
     draw();
   }
   function win() {
+    const at = state.first + state.done, total = allChars().length, whole = at >= total;
+    const text = !state.adv ? { icon: '✏️', title: '全部描好了！', again: '再描一組', speech: '全部描好了！好棒！' }
+      : whole ? { icon: '🏆', title: '整組都寫完了！', again: '再寫一次', speech: '整組都寫完了！你好棒！', note: `${SETS[state.set].label} ${total} 個全部完成` }
+      : { icon: '✏️', title: '這一段描好了！', again: '繼續下一段 ➜', speech: '這一段描好了！好棒！', note: `${SETS[state.set].label} ${at} / ${total}` };
+    $('winIcon').textContent = text.icon;
+    $('winTitle').textContent = text.title;
+    $('winNote').textContent = text.note || '';
+    $('winNote').hidden = !text.note;
+    $('again').textContent = text.again;
     $('stars').innerHTML = Kit.stars(3);
     $('win').hidden = false;
-    sfx.win(); say('全部描好了！好棒！');
+    sfx.win(); say(text.speech);
     Kit.confetti.start();
     $('again').focus();
   }
@@ -335,8 +409,21 @@
     if (!state.sound) Kit.hush();
     syncToolbar();
   });
-  $('restart').addEventListener('click', newGame);
+  $('adv').addEventListener('click', () => { state.adv = !state.adv; store.set('adv', state.adv); newGame(); });
+  // In advanced mode this button throws away saved progress, so it asks first (a child's stray tap should not cost it).
+  $('restart').addEventListener('click', () => {
+    if (!state.adv) return newGame();
+    $('askNote').textContent = `${SETS[state.set].label}已經寫到 ${posOf()} / ${allChars().length}`;
+    $('ask').hidden = false;
+    $('askNo').focus();
+  });
+  $('askNo').addEventListener('click', () => { $('ask').hidden = true; });
+  $('askYes').addEventListener('click', () => { savePos(0); newGame(); });
   function syncToolbar() {
+    $('adv').setAttribute('aria-pressed', state.adv);
+    $('restart').disabled = state.adv && posOf() === 0;
+    $('restart').setAttribute('aria-label', state.adv ? '從頭開始' : '換一組字');
+    $('restart').querySelector('.tag').textContent = state.adv ? '從頭' : '換字';
     [...$('sets').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.key === state.set));
     $('sound').setAttribute('aria-pressed', state.sound);
     $('sound').querySelector('.emo').textContent = state.sound ? '🔊' : '🔇';
